@@ -247,11 +247,27 @@ body {
 }
 .mf-letter__chev { color: var(--ink-300); }
 
+/* ---------- Accessibility ---------- */
+.mf-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---------- Scan tiles ---------- */
 .mf-tiles {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+}
+.mf-tiles--scan {
+  grid-template-columns: 1fr;
 }
 .mf-tile {
   display: flex;
@@ -563,7 +579,25 @@ body {
   justify-content: center;
   overflow: hidden;
   padding: 24px;
+  background: #000;
 }
+.mf-cam__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mf-cam__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+  max-width: 360px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.mf-cam__error p { margin: 0; font-size: 15px; line-height: 1.5; }
 .mf-cam__paper {
   width: min(320px, 90vw);
   background: #fff;
@@ -642,6 +676,51 @@ body {
 }
 .mf-cam__reading .t { font-size: 16px; font-weight: 600; margin: 0; }
 .mf-cam__reading .s { font-size: 13px; color: rgba(255, 255, 255, 0.72); margin: 3px 0 0; }
+
+/* ---------- Image preview (upload / OCR) ---------- */
+.mf-img-preview {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: var(--shadow-xs);
+}
+.mf-img-preview__img {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+}
+.mf-img-preview__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+.mf-img-preview__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.mf-img-preview__progress {
+  font-size: 13px;
+  color: var(--brand);
+  font-weight: 500;
+}
+.mf-img-preview__error {
+  font-size: 13px;
+  color: var(--risk-text);
+  line-height: 1.45;
+}
 
 .mf-seeall {
   background: transparent;
@@ -1069,6 +1148,7 @@ body {
 /* ---------- Responsive ---------- */
 @media (min-width: 640px) {
   .mf-tiles { grid-template-columns: 1fr 1fr; }
+  .mf-tiles--scan { grid-template-columns: repeat(3, 1fr); }
   .mf-tools { grid-template-columns: 1fr 1fr; }
   .mf-list--letters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 }
