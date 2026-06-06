@@ -269,6 +269,32 @@ body {
 .mf-tiles--scan {
   grid-template-columns: 1fr;
 }
+
+.mf-scan-mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.mf-scan-mode__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.mf-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.mf-note--ok {
+  background: var(--safe-surface);
+  border: 1px solid var(--safe-border);
+  color: var(--safe-text);
+}
+.mf-note svg { flex: 0 0 auto; margin-top: 1px; }
 .mf-tile {
   display: flex;
   flex-direction: column;

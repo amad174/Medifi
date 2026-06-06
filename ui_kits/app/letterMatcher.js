@@ -1,28 +1,30 @@
-/* Match OCR or pasted text to the closest demo letter. */
+/* Match OCR/pasted text to demo samples only when clearly similar; otherwise parse for real. */
 
 (function () {
+  const MIN_SAMPLE_SCORE = 28;
+
   const KEYWORDS = {
-    derm: ["dermatology", "st thomas", "clinic b", "outpatient department", "skin"],
-    referral: ["cardiology", "waiting list", "referred", "14-18 weeks", "14–18 weeks", "symptoms get worse"],
-    badadmin: ["endoscopy", "fasting", "several hours", "endoscopy unit", "camera test"],
-    rx: ["prescription", "amoxicillin", "ibuprofen", "pharmacy", "boots", "capsules", "tablets"],
+    derm: ["dermatology", "st thomas", "clinic b", "dermatology outpatient"],
+    referral: ["cardiology", "waiting list", "referred you to", "14-18 weeks", "14–18 weeks"],
+    badadmin: ["endoscopy", "endoscopy unit", "several hours before", "2 june 2026"],
+    rx: ["prescription", "amoxicillin", "ibuprofen", "boots pharmacy", "three times a day"],
   };
 
   function scoreLetter(letter, text) {
     const kws = KEYWORDS[letter.id] || [];
     let score = 0;
     for (const kw of kws) {
-      if (text.includes(kw)) score += kw.length;
+      if (text.includes(kw)) score += kw.length * 2;
     }
     const orig = (letter.original || "").toLowerCase();
-    const words = orig.split(/\W+/).filter((w) => w.length > 5);
-    for (const w of words) {
-      if (text.includes(w)) score += 2;
+    const phrases = orig.split("\n").map((l) => l.trim()).filter((l) => l.length > 12);
+    for (const phrase of phrases) {
+      if (text.includes(phrase.slice(0, 20))) score += 8;
     }
     return score;
   }
 
-  function matchLetterFromText(rawText) {
+  function matchSampleLetter(rawText) {
     const text = (rawText || "").toLowerCase().replace(/\s+/g, " ").trim();
     if (!text) return null;
 
@@ -35,22 +37,28 @@
         best = letter;
       }
     }
-    return bestScore > 0 ? best : null;
+    return bestScore >= MIN_SAMPLE_SCORE ? best : null;
   }
 
   function letterFromExtractedText(rawText) {
     const trimmed = (rawText || "").trim();
-    const matched = matchLetterFromText(trimmed);
-    const base = matched || window.MEDIFI_LETTERS[0];
-    return {
-      ...base,
-      original: trimmed || base.original,
-      fromUpload: true,
-    };
+    if (!trimmed) return null;
+
+    const sample = matchSampleLetter(trimmed);
+    if (sample) {
+      return {
+        ...sample,
+        original: trimmed,
+        fromUpload: true,
+        matchedSample: true,
+      };
+    }
+
+    return window.MedifiLetterParser.parseLetterFromText(trimmed);
   }
 
   window.MedifiLetterMatcher = {
-    matchLetterFromText,
+    matchSampleLetter,
     letterFromExtractedText,
   };
 })();

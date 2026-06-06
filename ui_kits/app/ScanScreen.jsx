@@ -141,6 +141,8 @@
     const [ocrProgress, setOcrProgress] = React.useState(null);
     const [ocrError, setOcrError] = React.useState("");
     const [busy, setBusy] = React.useState(false);
+    const [handwriting, setHandwriting] = React.useState(false);
+    const [ocrNote, setOcrNote] = React.useState("");
 
     const cameraInputRef = React.useRef(null);
     const fileInputRef = React.useRef(null);
@@ -159,6 +161,7 @@
       setImageName("");
       setOcrProgress(null);
       setOcrError("");
+      setOcrNote("");
     }
 
     function pickSample(letter) {
@@ -201,9 +204,13 @@
       setImageName(file.name || "Letter photo");
 
       try {
-        const extracted = await OCR.readImage(file, setOcrProgress);
-        if (!extracted) {
-          setOcrError("Could not read any text from this image. Try a clearer photo or paste the text.");
+        const extracted = await OCR.readImage(file, setOcrProgress, { handwriting });
+        if (!extracted || extracted.replace(/\s/g, "").length < 6) {
+          setOcrError(
+            handwriting
+              ? "Could not read enough handwriting. Try brighter light, plain paper, and larger writing — or type it in the box below."
+              : "Could not read any text from this image. Try a clearer photo, turn on handwritten mode, or paste the text."
+          );
           setBusy(false);
           setOcrProgress(null);
           return false;
@@ -212,7 +219,7 @@
         setPicked(null);
         setOcrProgress(null);
         setBusy(false);
-        analyzeFromText(extracted);
+        setOcrNote("Text read from your image — check it below, then tap Make my plan.");
         return true;
       } catch (err) {
         setOcrError(err.message || "Could not read this image. Try again or paste the text.");
@@ -275,6 +282,19 @@
           onChange={handleFileChange}
         />
 
+        <div className="mf-scan-mode">
+          <button
+            type="button"
+            className={"mf-chip" + (handwriting ? " mf-chip--on" : "")}
+            onClick={() => setHandwriting((h) => !h)}
+          >
+            {handwriting ? "Handwritten letter — on" : "Handwritten letter"}
+          </button>
+          <span className="mf-scan-mode__hint">
+            {handwriting ? "Extra contrast for notes and handwriting" : "Turn on for handwritten letters"}
+          </span>
+        </div>
+
         <div className="mf-tiles mf-tiles--scan">
           <button type="button" className="mf-tile" onClick={openCamera}>
             <span className="mf-tile__icon"><Icon name="camera" size={26} /></span>
@@ -303,7 +323,14 @@
           />
         )}
 
-        {ocrError && !imageUrl && (
+        {ocrNote && !ocrError && (
+          <div className="mf-note mf-note--ok">
+            <Icon name="check" size={18} />
+            <span>{ocrNote}</span>
+          </div>
+        )}
+
+        {ocrError && (
           <div className="mf-banner">
             <Icon name="alert" size={20} />
             <span>{ocrError}</span>
