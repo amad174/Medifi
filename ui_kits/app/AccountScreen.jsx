@@ -26,7 +26,7 @@
     );
   }
 
-  function AccountScreen({ onOpenHealth }) {
+  function AccountScreen({ onOpenHealth, onEditProfile, onSignOut, patient }) {
     const [prefs, setPrefs] = React.useState({ notify: true, calendar: true, carer: false, bigText: false });
     const [llm, setLlm] = React.useState(null);
     const [apiBase, setApiBase] = React.useState(() => LLM ? LLM.apiBase() : "");
@@ -55,16 +55,42 @@
 
     const llmLabel = !llm ? "Checking…" : llm.llm ? "AI connected" : "AI not configured";
     const llmTone = llm && llm.llm ? "safe" : "caution";
+    const P = window.MedifiPatient;
+    const profile = patient || (P ? P.load() : null);
+    const displayName = profile && profile.name ? profile.name : "Your account";
+    const displaySub = profile && profile.email ? profile.email : "Complete sign-up to save your profile";
+    const avatarLetter = P ? P.initial(displayName) : "M";
+    const lifestyleSummary = profile && profile.activity && P
+      ? [
+          P.labelFor(P.ACTIVITY, profile.activity),
+          profile.diet ? P.labelFor(P.DIET, profile.diet) + " diet" : "",
+          profile.sleep ? P.labelFor(P.SLEEP, profile.sleep) + " sleep" : "",
+        ].filter(Boolean).join(" · ")
+      : "";
 
     return (
       <div className="mf-screen">
         <div className="mf-profile">
-          <span className="mf-profile__avatar">A</span>
+          <span className="mf-profile__avatar">{avatarLetter}</span>
           <div className="mf-profile__main">
-            <span className="mf-profile__name">Aisha Khan</span>
-            <span className="mf-profile__sub">NHS number · 485 777 3456</span>
+            <span className="mf-profile__name">{displayName}</span>
+            <span className="mf-profile__sub">{displaySub}</span>
           </div>
-          <Badge tone="safe" dot>Verified</Badge>
+          <Badge tone={profile && profile.registeredAt ? "safe" : "caution"} dot>
+            {profile && profile.registeredAt ? "Signed up" : "Incomplete"}
+          </Badge>
+        </div>
+
+        <div className="mf-section">
+          <p className="mf-section__label">Your profile</p>
+          <button type="button" className="mf-contact" onClick={() => onEditProfile && onEditProfile()}>
+            <span className="mf-contact__icon"><Icon name="id" size={20} /></span>
+            <span className="mf-contact__main">
+              <span className="t">Edit sign-up details</span>
+              <span className="s">{lifestyleSummary || "Name, email, lifestyle questions"}</span>
+            </span>
+            <Icon name="chevronRight" size={20} />
+          </button>
         </div>
 
         <div className="mf-section">
@@ -121,7 +147,7 @@
           </div>
         </div>
 
-        <Button variant="secondary" fullWidth>Sign out</Button>
+        <Button variant="secondary" fullWidth onClick={() => onSignOut && onSignOut()}>Sign out</Button>
         <p className="mf-disclaimer">Medifi stores your letters on this device. We never share your information without your permission.</p>
       </div>
     );
