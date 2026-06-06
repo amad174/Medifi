@@ -25,9 +25,11 @@
     );
   }
 
-  function AccountScreen() {
+  function AccountScreen({ onOpenHealth }) {
     const [prefs, setPrefs] = React.useState({ notify: true, calendar: true, carer: false, bigText: false });
     const t = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
+    const health = window.MedifiHealth && window.MedifiHealth.loadProfile();
+    const score = health && health.lastScore;
 
     return (
       <div className="mf-screen">
@@ -38,6 +40,22 @@
             <span className="mf-profile__sub">NHS number · 485 777 3456</span>
           </div>
           <Badge tone="safe" dot>Verified</Badge>
+        </div>
+
+        <div className="mf-section">
+          <p className="mf-section__label">Health profile</p>
+          <button type="button" className="mf-contact" onClick={() => onOpenHealth && onOpenHealth()}>
+            <span className="mf-contact__icon"><Icon name="sparkle" size={20} /></span>
+            <span className="mf-contact__main">
+              <span className="t">Log health details &amp; AI risk score</span>
+              <span className="s">
+                {score
+                  ? "Last score: " + score.score + "/100 · tap to update"
+                  : "Weight, height, age, activity, diet"}
+              </span>
+            </span>
+            <Icon name="chevronRight" size={20} />
+          </button>
         </div>
 
         <div className="mf-section">

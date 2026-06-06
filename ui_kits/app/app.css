@@ -713,6 +713,337 @@ body {
 }
 .mf-med__days { font-size: 12px; color: var(--text-muted); }
 
+/* ---------- Transport routes ---------- */
+.mf-map-preview {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-subtle);
+}
+.mf-map-preview__frame {
+  display: block;
+  width: 100%;
+  height: 180px;
+  border: 0;
+  background: var(--line-200);
+}
+.mf-map-preview__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--surface-card);
+  border-top: 1px solid var(--border-subtle);
+}
+.mf-map-preview__link:hover {
+  background: var(--brand-subtle);
+}
+.mf-map-preview__link span { flex: 1; }
+.mf-map-preview__link svg:last-child { color: var(--ink-300); }
+
+.mf-route-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mf-route-card__head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.mf-route-card__icon {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mf-route-card__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mf-route-card__name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.mf-route-card__unit { font-size: 14px; color: var(--text-secondary); }
+.mf-route-card__addr {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.mf-route-card__best {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: var(--brand-subtle);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.mf-route-card__best svg { flex: 0 0 auto; color: var(--brand); margin-top: 1px; }
+.mf-route-card__best strong { color: var(--text-primary); }
+.mf-route-card__note {
+  font-size: 13px;
+  color: var(--caution-text);
+  margin: 0;
+}
+
+.mf-sheet--routes { max-width: 520px; max-height: 90vh; overflow-y: auto; }
+.mf-route-venue {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.mf-route-venue__icon {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mf-route-venue__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mf-route-venue__name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.mf-route-venue__unit { font-size: 14px; color: var(--text-secondary); }
+.mf-route-venue__addr {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.mf-route-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+.mf-route-note--caution {
+  background: var(--caution-surface);
+  color: var(--caution-text);
+  border: 1px solid var(--caution-border);
+}
+.mf-route-note svg { flex: 0 0 auto; margin-top: 1px; }
+.mf-route-leave {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: var(--brand-subtle);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.mf-route-leave svg { flex: 0 0 auto; color: var(--brand); }
+.mf-route-leave strong { color: var(--text-primary); }
+.mf-route-section-label { margin: 0 0 10px; }
+.mf-route-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.mf-route {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+.mf-route--best { border-color: var(--brand-border); background: var(--brand-subtle); }
+.mf-route__icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--ink-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mf-route--best .mf-route__icon { background: var(--surface-card); color: var(--brand); }
+.mf-route__main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mf-route__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mf-route__label { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.mf-route__dur {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.mf-route__summary { font-size: 14px; color: var(--text-secondary); }
+.mf-route__detail { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+.mf-route__leave {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--brand-hover);
+  margin-top: 2px;
+}
+.mf-route-arrival {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+  line-height: 1.45;
+}
+.mf-route-maps { margin-bottom: 8px; }
+.mf-route-maps .mf-sheet__opt { text-decoration: none; color: inherit; }
+
+/* ---------- Health profile ---------- */
+.mf-screen--health { max-width: 720px; }
+.mf-select {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  background: var(--surface-card);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 0 var(--pad-control);
+  min-height: 48px;
+}
+.mf-select:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: var(--focus-ring);
+}
+.mf-health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.mf-weight-log { margin-top: 12px; }
+.mf-weight-log__row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.mf-weight-log__row .mf-field { flex: 1; }
+.mf-weight-log__row .mf-btn { flex: 0 0 auto; min-width: 48px; padding: 0 14px; }
+.mf-weight-log__list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mf-weight-log__list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 8px 10px;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-sm);
+}
+.mf-weight-log__date {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+.mf-weight-log__kg { font-weight: 600; color: var(--text-primary); }
+
+.mf-health-score {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+}
+.mf-health-score--safe { border-color: var(--safe-border); background: var(--safe-surface); }
+.mf-health-score--caution { border-color: var(--caution-border); background: var(--caution-surface); }
+.mf-health-score--risk { border-color: var(--risk-border); background: var(--risk-surface); }
+.mf-health-score__ring {
+  flex: 0 0 auto;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card);
+  border: 4px solid var(--safe);
+}
+.mf-health-score--caution .mf-health-score__ring { border-color: var(--caution); }
+.mf-health-score--risk .mf-health-score__ring { border-color: var(--risk); }
+.mf-health-score__num {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-primary);
+}
+.mf-health-score__of {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.mf-health-score__main { min-width: 0; }
+.mf-health-score__title {
+  font: var(--type-h3);
+  margin: 4px 0 6px;
+  color: var(--text-primary);
+}
+.mf-health-score__sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+.mf-health-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mf-health-dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+}
+.mf-health-dl dt {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.mf-health-dl dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.mf-health-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .mf-health-grid { grid-template-columns: 1fr; }
+  .mf-health-score { flex-direction: column; text-align: center; }
+}
+
 /* ---------- Modal / sheet ---------- */
 .mf-sheet-scrim {
   position: fixed;
@@ -827,6 +1158,12 @@ body {
   transition: border-color var(--dur-fast);
 }
 .mf-contact:hover { border-color: var(--border-strong); }
+button.mf-contact {
+  width: 100%;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: left;
+}
 .mf-contact__icon {
   flex: 0 0 auto;
   width: 40px;
