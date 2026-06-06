@@ -88,6 +88,7 @@
       <nav className="mf-nav" aria-label="Mobile navigation">
         {item("home", "home", "Home")}
         {item("letters", "file", "Letters")}
+        {item("checkin", "help", "Check In")}
         {item("help", "help", "Help")}
         {item("account", "id", "Account")}
       </nav>
