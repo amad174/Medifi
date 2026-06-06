@@ -3,8 +3,8 @@
 A high-fidelity, click-through recreation of the **Medifi patient app**
 (*NHS Letter Lens*). It demonstrates the four MVP features end to end:
 
-1. **Scan / paste** an NHS letter (`ScanScreen`) — photo or paste, or pick one of
-   three realistic sample letters.
+1. **Scan / paste** an NHS letter (`ScanScreen`) — take a photo, upload an image
+   (OCR via Tesseract.js), paste text, or pick one of the sample letters.
 2. **Plain-English summary** + **extracted details** (`ResultScreen`).
 3. **Action checklist** of what to do next (tickable).
 4. **Admin risk alerts** — the signature traffic-light flags (past date, missing

@@ -5,17 +5,12 @@
   const Icon = window.Icon;
   const Cal = window.MedifiCal;
 
-  const MAIN_SCREENS = ["home", "letters", "help", "account"];
+  const MAIN_SCREENS = ["home", "letters", "checkin", "help", "account"];
 
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <svg width="150" height="28" viewBox="0 0 190 48" fill="none" role="img" aria-hidden="true">
-          <circle cx="20.5" cy="20.5" r="13.5" stroke="#1257d6" strokeWidth="4" />
-          <path d="M14.5 20.8l4.3 4.3 8-8.4" stroke="#0e8c84" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M30.4 30.4l8.1 8.1" stroke="#1257d6" strokeWidth="4" strokeLinecap="round" />
-          <text x="54" y="32" fontFamily="Lexend, sans-serif" fontSize="28" fontWeight="700" fill="#0d1b2a" letterSpacing="-0.5">Medifi</text>
-        </svg>
+        <img src="../../assets/medifi-cat.png" alt="Medifi" className="mf-header__logo-img" />
       </button>
     );
   }
@@ -24,6 +19,7 @@
     const items = [
       { id: "home", label: "Home" },
       { id: "letters", label: "Letters" },
+      { id: "checkin", label: "Check In" },
       { id: "help", label: "Help" },
       { id: "account", label: "Account" },
     ];
@@ -72,12 +68,19 @@
     );
   }
 
-  function Processing() {
+  function Processing({ message, sub }) {
+    const [secs, setSecs] = React.useState(0);
+    React.useEffect(function () {
+      setSecs(0);
+      const id = window.setInterval(function () { setSecs((s) => s + 1); }, 1000);
+      return function () { window.clearInterval(id); };
+    }, []);
     return (
       <div className="mf-processing">
         <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
-        <p className="mf-processing__t">Reading your letter…</p>
-        <p className="mf-processing__s">Finding the date, place, and what to do next.</p>
+        <p className="mf-processing__t">{message || "Reading your letter…"}</p>
+        <p className="mf-processing__s">{sub || "Finding the date, place, and what to do next."}</p>
+        <p className="mf-processing__s">Usually 10–45 seconds with Claude · {secs}s</p>
       </div>
     );
   }
@@ -92,6 +95,7 @@
       <nav className="mf-nav" aria-label="Mobile navigation">
         {item("home", "home", "Home")}
         {item("letters", "file", "Letters")}
+        {item("checkin", "help", "Check In")}
         {item("help", "help", "Help")}
         {item("account", "id", "Account")}
       </nav>
@@ -166,6 +170,21 @@
     const [readIds, setReadIds] = React.useState(
       () => new Set((window.MEDIFI_UPDATES || []).filter((u) => !u.unread).map((u) => u.id)));
     const [toast, setToast] = React.useState("");
+    const [processingMsg, setProcessingMsg] = React.useState("");
+    const [processingSub, setProcessingSub] = React.useState("");
+    const [lettersVersion, setLettersVersion] = React.useState(0);
+
+    const allLetters = React.useMemo(function () {
+      return window.MedifiLetterStore
+        ? window.MedifiLetterStore.getAllLetters()
+        : (window.MEDIFI_LETTERS || []);
+    }, [lettersVersion]);
+
+    function saveToLibrary(l) {
+      if (window.MedifiLetterStore && window.MedifiLetterStore.saveLetter(l)) {
+        setLettersVersion(function (v) { return v + 1; });
+      }
+    }
 
     const markRead = React.useCallback((id) => {
       setReadIds((prev) => { if (prev.has(id)) return prev; const n = new Set(prev); n.add(id); return n; });
@@ -175,6 +194,7 @@
       scan: "Scan a letter",
       result: letter ? letter.sender : "",
       letters: "Your letters",
+      checkin: "Check in",
       help: "Help & support",
       account: "Account",
       health: "Health profile",
@@ -184,11 +204,52 @@
     function openCal(it) { setCalItem(it); setCalOpen(true); }
     function openRoutes() { setRouteOpen(true); }
 
-    function analyze(l, instant) {
+    async function analyze(input, instant) {
+      const Matcher = window.MedifiLetterMatcher;
+      const isReadyPlan = input && typeof input === "object" && input.headline && input.summary;
+      const isTextJob = input && typeof input === "object" && input.text && !input.headline;
+
+      if (isReadyPlan) {
+        saveToLibrary(input);
+        setLetter(input);
+        setScreen("result");
+        return;
+      }
+
+      if (isTextJob) {
+        setProcessing(true);
+        setProcessingMsg("Medifi AI is reading your letter…");
+        setProcessingSub("Summarising in plain English and checking for admin risks.");
+        try {
+          const letter = await Matcher.letterFromExtractedText(input.text);
+          saveToLibrary(letter);
+          setLetter(letter);
+          setScreen("result");
+        } catch (err) {
+          const msg = err.name === "AbortError"
+            ? "This is taking too long. Check your API key in .env and try a shorter letter, or paste the text instead."
+            : (err.message || "Could not analyse this letter.");
+          flash(msg);
+        } finally {
+          setProcessing(false);
+          setProcessingMsg("");
+          setProcessingSub("");
+        }
+        return;
+      }
+
+      const l = input;
       setLetter(l);
       if (instant) { setScreen("result"); return; }
       setProcessing(true);
-      setTimeout(() => { setProcessing(false); setScreen("result"); }, 1500);
+      setProcessingMsg(l && l.fromLLM ? "Medifi AI is reading your letter…" : "Reading your letter…");
+      setProcessingSub("Finding the date, place, and what to do next.");
+      window.setTimeout(() => {
+        setProcessing(false);
+        setProcessingMsg("");
+        setProcessingSub("");
+        setScreen("result");
+      }, l && l.fromLLM ? 800 : 1500);
     }
     function open(l) { setLetter(l); setScreen("result"); }
     function goHome() { setScreen("home"); }
@@ -216,9 +277,16 @@
           unread={unread}
         />
         <main className="mf-body">
-          {processing ? <Processing /> : (
+          {processing ? <Processing message={processingMsg} sub={processingSub} /> : (
             <React.Fragment>
-              {screen === "home" && <window.HomeScreen onScan={() => setScreen("scan")} onOpen={open} onSeeAll={() => setScreen("letters")} />}
+              {screen === "home" && (
+                <window.HomeScreen
+                  letters={allLetters}
+                  onScan={() => setScreen("scan")}
+                  onOpen={open}
+                  onSeeAll={() => setScreen("letters")}
+                />
+              )}
               {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
               {screen === "result" && letter && (
                 <window.ResultScreen
@@ -228,6 +296,8 @@
                 />
               )}
               {screen === "letters" && <window.LettersScreen onOpen={open} />}
+              {screen === "checkin" && <window.CheckInScreen />}
+              {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
               {screen === "account" && <window.AccountScreen onOpenHealth={() => setScreen("health")} />}
