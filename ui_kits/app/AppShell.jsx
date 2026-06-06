@@ -5,17 +5,12 @@
   const Icon = window.Icon;
   const Cal = window.MedifiCal;
 
-  const MAIN_SCREENS = ["home", "letters", "help", "account"];
+  const MAIN_SCREENS = ["home", "letters", "checkin", "help", "account"];
 
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <svg width="150" height="28" viewBox="0 0 190 48" fill="none" role="img" aria-hidden="true">
-          <circle cx="20.5" cy="20.5" r="13.5" stroke="#1257d6" strokeWidth="4" />
-          <path d="M14.5 20.8l4.3 4.3 8-8.4" stroke="#0e8c84" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M30.4 30.4l8.1 8.1" stroke="#1257d6" strokeWidth="4" strokeLinecap="round" />
-          <text x="54" y="32" fontFamily="Lexend, sans-serif" fontSize="28" fontWeight="700" fill="#0d1b2a" letterSpacing="-0.5">Medifi</text>
-        </svg>
+        <img src="../../assets/medifi-cat.png" alt="Medifi" className="mf-header__logo-img" />
       </button>
     );
   }
@@ -24,6 +19,7 @@
     const items = [
       { id: "home", label: "Home" },
       { id: "letters", label: "Letters" },
+      { id: "checkin", label: "Check In" },
       { id: "help", label: "Help" },
       { id: "account", label: "Account" },
     ];
@@ -99,6 +95,7 @@
       <nav className="mf-nav" aria-label="Mobile navigation">
         {item("home", "home", "Home")}
         {item("letters", "file", "Letters")}
+        {item("checkin", "help", "Check In")}
         {item("help", "help", "Help")}
         {item("account", "id", "Account")}
       </nav>
@@ -169,6 +166,7 @@
     const [processing, setProcessing] = React.useState(false);
     const [calOpen, setCalOpen] = React.useState(false);
     const [calItem, setCalItem] = React.useState(null);
+    const [routeOpen, setRouteOpen] = React.useState(false);
     const [readIds, setReadIds] = React.useState(
       () => new Set((window.MEDIFI_UPDATES || []).filter((u) => !u.unread).map((u) => u.id)));
     const [toast, setToast] = React.useState("");
@@ -196,12 +194,15 @@
       scan: "Scan a letter",
       result: letter ? letter.sender : "",
       letters: "Your letters",
+      checkin: "Check in",
       help: "Help & support",
       account: "Account",
+      health: "Health profile",
       updates: "Updates",
     };
 
     function openCal(it) { setCalItem(it); setCalOpen(true); }
+    function openRoutes() { setRouteOpen(true); }
 
     async function analyze(input, instant) {
       const Matcher = window.MedifiLetterMatcher;
@@ -253,7 +254,8 @@
     function open(l) { setLetter(l); setScreen("result"); }
     function goHome() { setScreen("home"); }
     function goBack() {
-      if (screen === "result" || screen === "scan") goHome();
+      if (screen === "health") setScreen("account");
+      else if (screen === "result" || screen === "scan") goHome();
       else if (screen === "updates") goHome();
       else goHome();
     }
@@ -286,11 +288,20 @@
                 />
               )}
               {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
-              {screen === "result" && letter && <window.ResultScreen letter={letter} onAddReminders={() => openCal(letter)} />}
+              {screen === "result" && letter && (
+                <window.ResultScreen
+                  letter={letter}
+                  onAddReminders={() => openCal(letter)}
+                  onPlanRoute={openRoutes}
+                />
+              )}
+              {screen === "letters" && <window.LettersScreen onOpen={open} />}
+              {screen === "checkin" && <window.CheckInScreen />}
               {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
-              {screen === "account" && <window.AccountScreen />}
+              {screen === "account" && <window.AccountScreen onOpenHealth={() => setScreen("health")} />}
+              {screen === "health" && <window.HealthScreen onDone={() => setScreen("account")} />}
             </React.Fragment>
           )}
         </main>
@@ -303,6 +314,9 @@
         )}
         {showMobileNav && <BottomNav screen={screen} onNav={setScreen} />}
         {calOpen && calItem && <CalendarSheet letter={calItem} onClose={() => setCalOpen(false)} onDone={calDone} />}
+        {routeOpen && letter && window.MedifiRoutes.venueForLetter(letter) && (
+          <window.TransportSheet letter={letter} onClose={() => setRouteOpen(false)} />
+        )}
         {toast && <Toast>{toast}</Toast>}
       </div>
     );
