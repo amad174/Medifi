@@ -1,0 +1,38 @@
+/* ============================================================
+   MEDIFI · SPACING TOKENS
+   4px base grid. Generous spacing — calm, uncluttered layouts
+   that reduce cognitive load for stressed / overwhelmed users.
+   ============================================================ */
+
+:root {
+  --space-0:  0;
+  --space-1:  0.25rem;  /* 4 */
+  --space-2:  0.5rem;   /* 8 */
+  --space-3:  0.75rem;  /* 12 */
+  --space-4:  1rem;     /* 16 */
+  --space-5:  1.25rem;  /* 20 */
+  --space-6:  1.5rem;   /* 24 */
+  --space-8:  2rem;     /* 32 */
+  --space-10: 2.5rem;   /* 40 */
+  --space-12: 3rem;     /* 48 */
+  --space-16: 4rem;     /* 64 */
+  --space-20: 5rem;     /* 80 */
+  --space-24: 6rem;     /* 96 */
+
+  /* Layout */
+  --gutter:        var(--space-6);
+  --page-pad:      var(--space-6);
+  --content-max:   720px;   /* readable measure for summaries */
+  --app-max:       480px;   /* mobile-first patient app width */
+  --section-gap:   var(--space-12);
+
+  /* Component rhythm */
+  --pad-card:      var(--space-6);
+  --pad-control:   var(--space-4);
+  --stack-tight:   var(--space-2);
+  --stack:         var(--space-4);
+  --stack-loose:   var(--space-6);
+
+  /* Minimum hit target — accessibility */
+  --tap-min: 48px;
+}

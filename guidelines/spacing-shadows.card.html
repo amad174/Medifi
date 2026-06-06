@@ -1,0 +1,24 @@
+<!-- @dsCard group="Spacing" viewport="700x190" name="Elevation · shadows" subtitle="Soft, low, blue-tinted — quiet elevation" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; padding: 32px 28px; background: #e7edf3; font-family: var(--font-sans); }
+  .row { display: flex; gap: 26px; }
+  .item { text-align: center; }
+  .box { width: 120px; height: 78px; background: var(--paper-0); border-radius: var(--radius-md); border: 1px solid rgba(13,27,42,.04); }
+  .n { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 12px; }
+  .t { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-xs)"></div><div class="n">xs</div><div class="t">resting</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-sm)"></div><div class="n">sm · card</div><div class="t">default</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-md)"></div><div class="n">md</div><div class="t">menu / sheet</div></div>
+    <div class="item"><div class="box" style="box-shadow:var(--shadow-lg)"></div><div class="n">lg</div><div class="t">modal</div></div>
+  </div>
+</body>
+</html>

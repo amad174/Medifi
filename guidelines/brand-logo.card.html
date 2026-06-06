@@ -1,0 +1,33 @@
+<!-- @dsCard group="Brand" viewport="700x240" name="Logo & mark" subtitle="Lens ring + teal clarity check + magnifier handle" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .panel { padding: 32px; display: flex; align-items: center; gap: 18px; }
+  .light { background: var(--surface-card); }
+  .dark { background: var(--ink-900); }
+  .mono { font-family: var(--font-mono); font-size: 11px; }
+  .light .cap { color: var(--text-muted); }
+  .dark .cap { color: var(--ink-300); }
+  img { height: 40px; }
+  .stack { display: flex; flex-direction: column; gap: 6px; }
+</style>
+</head>
+<body>
+  <div class="panel light">
+    <div class="stack">
+      <img src="../assets/medifi-logo.svg" alt="Medifi">
+      <span class="cap mono">medifi-logo.svg</span>
+    </div>
+  </div>
+  <div class="panel dark">
+    <div class="stack">
+      <img src="../assets/medifi-logo-white.svg" alt="Medifi">
+      <span class="cap mono">medifi-logo-white.svg</span>
+    </div>
+  </div>
+</body>
+</html>

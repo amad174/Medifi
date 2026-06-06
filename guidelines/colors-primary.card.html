@@ -1,0 +1,28 @@
+<!-- @dsCard group="Colors" viewport="700x170" name="Primary · Medifi Blue" subtitle="Trust, calm authority, primary actions" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-card); font-family: var(--font-sans); }
+  .row { display: flex; gap: 10px; }
+  .sw { flex: 1; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-subtle); }
+  .chip { height: 64px; }
+  .meta { padding: 8px 10px; }
+  .name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .star { box-shadow: inset 0 0 0 2px var(--brand); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--blue-50)"></div><div class="meta"><div class="name">50</div><div class="hex">#eef4fe</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--blue-100)"></div><div class="meta"><div class="name">100</div><div class="hex">#d8e6fb</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--blue-500)"></div><div class="meta"><div class="name">500</div><div class="hex">#2e70e8</div></div></div>
+    <div class="sw star"><div class="chip" style="background:var(--blue-600)"></div><div class="meta"><div class="name">600 · brand</div><div class="hex">#1257d6</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--blue-700)"></div><div class="meta"><div class="name">700 · hover</div><div class="hex">#0c49aa</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--blue-900)"></div><div class="meta"><div class="name">900</div><div class="hex">#08306e</div></div></div>
+  </div>
+</body>
+</html>
