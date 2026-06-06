@@ -19,7 +19,7 @@
     const items = [
       { id: "home", label: "Home" },
       { id: "letters", label: "Letters" },
-      { id: "checkin", label: "Check in" },
+      { id: "checkin", label: "Check In" },
       { id: "help", label: "Help" },
       { id: "account", label: "Account" },
     ];
