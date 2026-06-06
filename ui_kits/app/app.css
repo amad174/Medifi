@@ -430,6 +430,60 @@ body {
   white-space: pre-wrap;
 }
 
+/* ---------- Patient sign-up ---------- */
+.mf-screen--signup {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.mf-signup-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.mf-signup-hero {
+  margin-bottom: 8px;
+}
+.mf-signup-hero__h {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 4vw, 1.85rem);
+  font-weight: 700;
+  color: var(--ink-900);
+  margin: 8px 0 6px;
+  line-height: 1.2;
+}
+.mf-signup-hero__sub {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-500);
+}
+.mf-signup-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mf-signup-section__hint {
+  margin: -4px 0 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-500);
+}
+.mf-signup-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.mf-signup-q__label {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-800);
+  line-height: 1.4;
+}
+.mf-chips--wrap {
+  flex-wrap: wrap;
+}
+
 /* ---------- Listen / speech ---------- */
 .mf-listen {
   display: flex;

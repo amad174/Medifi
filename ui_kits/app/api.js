@@ -1,27 +1,32 @@
-// Frontend API wrapper for Medifi demo
+// Frontend API wrapper for Medifi check-in and health
 (function () {
-  const BASE = (window.MEDIFI_API_BASE || 'http://localhost:3000').replace(/\/$/, '');
-  const KEY = window.MEDIFI_API_KEY || 'YOUR_ANTHROPIC_API_KEY_HERE';
+  function apiBase() {
+    if (window.MEDIFI_CONFIG && window.MEDIFI_CONFIG.apiBase) {
+      return window.MEDIFI_CONFIG.apiBase.replace(/\/$/, "");
+    }
+    if (window.MedifiLLM) return window.MedifiLLM.apiBase();
+    if (window.location.port === "3001" || window.location.hostname === "localhost") {
+      return window.location.origin;
+    }
+    return "http://localhost:3001";
+  }
 
   async function checkIn(payload) {
-    const res = await fetch(BASE + '/api/checkin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': KEY,
-        'anthropic-version': '2023-06-01',
-      },
+    const res = await fetch(apiBase() + "/api/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error('Network response was not ok');
-    return res.json();
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || "Check-in failed");
+    return data;
   }
 
   async function health() {
-    const res = await fetch(BASE + '/api/health');
-    if (!res.ok) throw new Error('Health check failed');
+    const res = await fetch(apiBase() + "/api/health");
+    if (!res.ok) throw new Error("Health check failed");
     return res.json();
   }
 
-  window.MedifiApi = { checkIn, health, baseUrl: BASE };
+  window.MedifiApi = { checkIn, health, apiBase };
 })();

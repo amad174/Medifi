@@ -10,7 +10,7 @@
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <img src="../../assets/medifi-cat.png" alt="Medifi" className="mf-header__logo-img" />
+        <img src="../../assets/medifi-cat.svg" alt="Medifi" className="mf-header__logo-img" />
       </button>
     );
   }
@@ -39,7 +39,7 @@
     );
   }
 
-  function Header({ screen, title, onHome, onBack, onNav, onAccount, onUpdates, unread }) {
+  function Header({ screen, title, onHome, onBack, onNav, onAccount, onUpdates, unread, avatarInitial }) {
     const isSub = !MAIN_SCREENS.includes(screen);
     return (
       <header className={"mf-header" + (isSub ? " mf-header--sub" : "")}>
@@ -61,7 +61,7 @@
               <Icon name="bell" size={22} />
               {unread > 0 && <span className="mf-bell-badge">{unread}</span>}
             </button>
-            <button type="button" className="mf-avatar" aria-label="Your account" onClick={onAccount}>A</button>
+            <button type="button" className="mf-avatar" aria-label="Your account" onClick={onAccount}>{avatarInitial || "M"}</button>
           </div>
         </div>
       </header>
@@ -161,7 +161,9 @@
   }
 
   function AppShell() {
+    const [booting, setBooting] = React.useState(true);
     const [screen, setScreen] = React.useState("home");
+    const [patient, setPatient] = React.useState(null);
     const [letter, setLetter] = React.useState(null);
     const [processing, setProcessing] = React.useState(false);
     const [calOpen, setCalOpen] = React.useState(false);
@@ -174,13 +176,40 @@
     const [processingSub, setProcessingSub] = React.useState("");
     const [lettersVersion, setLettersVersion] = React.useState(0);
 
+    React.useEffect(function () {
+      if (!window.MedifiAuth || !window.MedifiAuth.firebaseReady()) {
+        setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
+        setScreen(window.MedifiPatient && window.MedifiPatient.isRegistered() ? "home" : "signup");
+        setBooting(false);
+        return;
+      }
+      window.MedifiAuth.bootstrap().then(function (data) {
+        if (data.user) {
+          setPatient(data.user);
+          setScreen("home");
+        } else {
+          setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
+          setScreen("signup");
+        }
+        setLettersVersion(function (v) { return v + 1; });
+        setBooting(false);
+      });
+    }, []);
+
     const allLetters = React.useMemo(function () {
       return window.MedifiLetterStore
         ? window.MedifiLetterStore.getAllLetters()
         : (window.MEDIFI_LETTERS || []);
     }, [lettersVersion]);
 
-    function saveToLibrary(l) {
+    async function saveToLibrary(l) {
+      if (window.MedifiAuth && window.MedifiAuth.getToken()) {
+        try {
+          await window.MedifiAuth.saveLetter(l);
+          setLettersVersion(function (v) { return v + 1; });
+          return;
+        } catch (_) { /* fall through to local */ }
+      }
       if (window.MedifiLetterStore && window.MedifiLetterStore.saveLetter(l)) {
         setLettersVersion(function (v) { return v + 1; });
       }
@@ -198,8 +227,33 @@
       help: "Help & support",
       account: "Account",
       health: "Health profile",
+      signup: "Create account",
       updates: "Updates",
     };
+
+    async function signOut() {
+      if (window.MedifiAuth) await window.MedifiAuth.logout();
+      else if (window.MedifiPatient) window.MedifiPatient.clear();
+      setPatient(window.MedifiPatient ? window.MedifiPatient.defaultProfile() : null);
+      setLettersVersion(function (v) { return v + 1; });
+      setScreen("signup");
+      flash("Signed out.");
+    }
+
+    function onSignupComplete(profile) {
+      const wasRegistered = patient && patient.registeredAt;
+      setPatient(profile);
+      setScreen(wasRegistered ? "account" : "home");
+      flash(
+        wasRegistered
+          ? "Profile updated."
+          : "Welcome, " + (window.MedifiPatient ? window.MedifiPatient.firstName(profile.name) : "there") + "!"
+      );
+    }
+
+    const avatarInitial = patient && window.MedifiPatient
+      ? window.MedifiPatient.initial(patient.name)
+      : "M";
 
     function openCal(it) { setCalItem(it); setCalOpen(true); }
     function openRoutes() { setRouteOpen(true); }
@@ -254,7 +308,7 @@
     function open(l) { setLetter(l); setScreen("result"); }
     function goHome() { setScreen("home"); }
     function goBack() {
-      if (screen === "health") setScreen("account");
+      if (screen === "health" || screen === "signup") setScreen(patient && patient.registeredAt ? "account" : "home");
       else if (screen === "result" || screen === "scan") goHome();
       else if (screen === "updates") goHome();
       else goHome();
@@ -262,7 +316,7 @@
     function flash(msg) { setToast(msg); window.clearTimeout(flash._t); flash._t = window.setTimeout(() => setToast(""), 2800); }
     function calDone(msg) { setCalOpen(false); flash(msg); }
 
-    const showMobileNav = !processing && MAIN_SCREENS.includes(screen);
+    const showMobileNav = !booting && !processing && MAIN_SCREENS.includes(screen);
 
     return (
       <div className="mf-app">
@@ -275,13 +329,29 @@
           onAccount={() => setScreen("account")}
           onUpdates={() => setScreen("updates")}
           unread={unread}
+          avatarInitial={avatarInitial}
         />
         <main className="mf-body">
-          {processing ? <Processing message={processingMsg} sub={processingSub} /> : (
+          {booting ? (
+            <div className="mf-processing">
+              <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
+              <p className="mf-processing__t">Loading your account…</p>
+            </div>
+          ) : processing ? <Processing message={processingMsg} sub={processingSub} /> : (
             <React.Fragment>
+              {screen === "signup" && (
+                <window.SignUpScreen
+                  isEdit={Boolean(
+                    patient && patient.registeredAt
+                    && window.MedifiAuth && window.MedifiAuth.getToken()
+                  )}
+                  onComplete={onSignupComplete}
+                />
+              )}
               {screen === "home" && (
                 <window.HomeScreen
                   letters={allLetters}
+                  patient={patient}
                   onScan={() => setScreen("scan")}
                   onOpen={open}
                   onSeeAll={() => setScreen("letters")}
@@ -295,12 +365,18 @@
                   onPlanRoute={openRoutes}
                 />
               )}
-              {screen === "letters" && <window.LettersScreen onOpen={open} />}
               {screen === "checkin" && <window.CheckInScreen />}
               {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
-              {screen === "account" && <window.AccountScreen onOpenHealth={() => setScreen("health")} />}
+              {screen === "account" && (
+                <window.AccountScreen
+                  patient={patient}
+                  onOpenHealth={() => setScreen("health")}
+                  onEditProfile={() => setScreen("signup")}
+                  onSignOut={signOut}
+                />
+              )}
               {screen === "health" && <window.HealthScreen onDone={() => setScreen("account")} />}
             </React.Fragment>
           )}

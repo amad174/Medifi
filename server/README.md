@@ -1,8 +1,6 @@
-# Medifi API (local dev)
+# Medifi server
 
-Run a minimal Express API for the Check-in flow.
-
-Install and run:
+Express API + static app host for local development.
 
 ```bash
 cd server
@@ -10,8 +8,18 @@ npm install
 npm start
 ```
 
-Defaults to `http://localhost:3000` and exposes:
+Open **http://localhost:3001/ui_kits/app/index.html**
 
-- `GET /api/health` — simple health check
-- `POST /api/checkin` — body: `{ appointmentId, name? }` → returns `{ ok, appointmentId, checkedInAt }`
-- `GET /api/checkins` — list of recorded check-ins (in-memory; demo only)
+Copy `.env.example` to the repo root as `.env` and add your Anthropic API key for letter reading.
+
+**Accounts & saved letters** use **Firebase** (client-side). Copy `ui_kits/app/firebase-config.example.js` to `firebase-config.js`, add your Firebase web app config, enable Email/Password auth, create Firestore, and deploy `firestore.rules` from the repo root.
+
+## Endpoints
+
+- `GET /api/health` — LLM status
+- `POST /api/parse-letter` — text → action plan
+- `POST /api/parse-letter-image` — photo → action plan
+- `POST /api/translate` — multilingual summary
+- `POST /api/ask` — Q&A about a letter
+- `POST /api/checkin` — `{ appointmentId, name? }`
+- `GET /api/checkins` — demo check-in list (in-memory)

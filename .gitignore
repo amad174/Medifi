@@ -3,4 +3,6 @@
 .env
 node_modules/
 server/node_modules/
+server/data/
 ui_kits/app/config.js
+ui_kits/app/firebase-config.js
