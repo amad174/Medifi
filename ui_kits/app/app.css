@@ -426,11 +426,27 @@ body {
   white-space: pre-wrap;
 }
 
+/* ---------- Listen / speech ---------- */
+.mf-listen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.mf-listen__hint {
+  font-size: 13px;
+  color: var(--color-muted, #5a7086);
+}
+
 /* ---------- Tools ---------- */
 .mf-tools {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
+}
+.mf-tools--3 {
+  grid-template-columns: 1fr;
 }
 .mf-tool {
   display: flex;
@@ -1193,6 +1209,7 @@ body {
   .mf-tiles { grid-template-columns: 1fr 1fr; }
   .mf-tiles--scan { grid-template-columns: repeat(3, 1fr); }
   .mf-tools { grid-template-columns: 1fr 1fr; }
+  .mf-tools--3 { grid-template-columns: repeat(3, 1fr); }
   .mf-list--letters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 }
 

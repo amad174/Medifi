@@ -26,6 +26,8 @@
     const [toastMsg, setToastMsg] = React.useState("");
     const [shareOpen, setShareOpen] = React.useState(false);
     const [shareText, setShareText] = React.useState("");
+    const [speaking, setSpeaking] = React.useState(false);
+    const [speechError, setSpeechError] = React.useState("");
     const xlateCache = React.useRef({});
     const toggle = (id) => setDone((d) => ({ ...d, [id]: !d[id] }));
 
@@ -33,12 +35,23 @@
       setLang("English");
       setXlate(null);
       setXlateError("");
+      setSpeechError("");
+      setSpeaking(false);
       xlateCache.current = {};
+      if (window.MedifiSpeech) window.MedifiSpeech.stop();
     }, [letter.id]);
+
+    React.useEffect(function () {
+      return function () {
+        if (window.MedifiSpeech) window.MedifiSpeech.stop();
+      };
+    }, []);
 
     async function pickLanguage(nextLang) {
       setLangOpen(false);
       setXlateError("");
+      if (window.MedifiSpeech) window.MedifiSpeech.stop();
+      setSpeaking(false);
       if (nextLang === "English") {
         setLang("English");
         setXlate(null);
@@ -98,6 +111,26 @@
       setToast(true);
       window.clearTimeout(showToast._t);
       showToast._t = window.setTimeout(function () { setToast(false); }, 3200);
+    }
+
+    async function toggleListen() {
+      const Speech = window.MedifiSpeech;
+      if (!Speech) return;
+      setSpeechError("");
+      if (speaking || Speech.isSpeaking()) {
+        Speech.stop();
+        setSpeaking(false);
+        return;
+      }
+      try {
+        setSpeaking(true);
+        await Speech.speakLetter(letter, xlate || letter, lang, function () {
+          setSpeaking(false);
+        });
+      } catch (err) {
+        setSpeaking(false);
+        setSpeechError(err.message || "Could not read aloud.");
+      }
     }
 
     async function shareCarer() {
@@ -196,7 +229,25 @@
               <p className="mf-section__label">{lang === "English" ? "In plain English" : "Summary"}</p>
               <Card variant="accent">
                 <p className={"mf-summary" + (isRtl ? " mf-rtl" : "")}>{view.summary}</p>
+                <div className="mf-listen">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    iconLeft={<Icon name="volume" size={18} />}
+                    onClick={toggleListen}
+                    disabled={xlateLoading}
+                  >
+                    {speaking ? "Stop" : "Listen to summary"}
+                  </Button>
+                  {speaking && <span className="mf-listen__hint">Reading your plan aloud…</span>}
+                </div>
               </Card>
+              {speechError && (
+                <div className="mf-banner" style={{ marginTop: 8 }}>
+                  <Icon name="alert" size={18} />
+                  <span>{speechError}</span>
+                </div>
+              )}
             </div>
 
             <div className="mf-section">
@@ -281,7 +332,11 @@
               </div>
             )}
 
-            <div className="mf-tools">
+            <div className="mf-tools mf-tools--3">
+              <button type="button" className="mf-tool" onClick={toggleListen} disabled={xlateLoading}>
+                <Icon name="volume" size={20} />
+                <span>{speaking ? "Stop" : "Listen"}</span>
+              </button>
               <button type="button" className="mf-tool" onClick={() => setLangOpen((o) => !o)} disabled={xlateLoading}>
                 <Icon name="languages" size={20} />
                 <span>{xlateLoading ? "Translating…" : (lang === "English" ? "Translate" : lang)}</span>

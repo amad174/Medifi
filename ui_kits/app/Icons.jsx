@@ -26,6 +26,7 @@
     check: '<path d="M20 6 9 17l-5-5"/>',
     lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    volume: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
   };
   function Icon({ name, size = 24, strokeWidth = 2, style, className }) {
     return React.createElement("svg", {
