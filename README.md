@@ -33,7 +33,7 @@ Try: **Scan a letter** → pick the **Confusing letter** sample → **Make my pl
 - **`Medifi App.html`** — legacy phone-mock standalone (design export; use `ui_kits/app/` for web)
 - **`components/`** — design-system React primitives (`Button`, `RiskFlag`, `ChecklistItem`, …)
 - **`tokens/`** + **`styles.css`** — brand tokens (Medifi Blue, Lens Teal, risk traffic-light system)
-- **`assets/`** — Medifi logo and mark SVGs
+- **`assets/`** — Medifi logo and mark assets
 
 ---
 
@@ -219,7 +219,7 @@ UI and 16px inline. Stroke weight stays consistent so icons feel like one family
 **`tokens/`** — `fonts.css`, `colors.css`, `typography.css`, `spacing.css`,
 `elevation.css`. Base values + semantic aliases.
 
-**`assets/`** — `medifi-mark.svg`, `medifi-logo.svg`, `medifi-logo-white.svg`,
+**`assets/`** — `medifi-mark.svg`, `medifi-cat.png`,
 sample NHS-style letter images, brand specimen cards.
 
 **`guidelines/`** — foundation specimen cards (Type, Colors, Spacing, Brand) shown
