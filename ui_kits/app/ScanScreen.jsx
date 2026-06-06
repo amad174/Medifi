@@ -173,12 +173,15 @@
     function analyzeFromText(rawText, letterOverride) {
       const trimmed = (rawText || "").trim();
       if (!trimmed) return;
-      const letter = letterOverride || (picked && picked.original === trimmed ? picked : Matcher.letterFromExtractedText(trimmed));
-      onAnalyze(letter);
+      if (letterOverride || (picked && picked.original === trimmed)) {
+        onAnalyze(letterOverride || picked);
+        return;
+      }
+      onAnalyze({ text: trimmed });
     }
 
     function analyze() {
-      analyzeFromText(text, picked);
+      analyzeFromText(text, picked && text.trim() === picked.original ? picked : null);
     }
 
     function isImageFile(file) {

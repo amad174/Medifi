@@ -72,12 +72,12 @@
     );
   }
 
-  function Processing() {
+  function Processing({ message, sub }) {
     return (
       <div className="mf-processing">
         <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
-        <p className="mf-processing__t">Reading your letter…</p>
-        <p className="mf-processing__s">Finding the date, place, and what to do next.</p>
+        <p className="mf-processing__t">{message || "Reading your letter…"}</p>
+        <p className="mf-processing__s">{sub || "Finding the date, place, and what to do next."}</p>
       </div>
     );
   }
@@ -165,6 +165,8 @@
     const [readIds, setReadIds] = React.useState(
       () => new Set((window.MEDIFI_UPDATES || []).filter((u) => !u.unread).map((u) => u.id)));
     const [toast, setToast] = React.useState("");
+    const [processingMsg, setProcessingMsg] = React.useState("");
+    const [processingSub, setProcessingSub] = React.useState("");
 
     const markRead = React.useCallback((id) => {
       setReadIds((prev) => { if (prev.has(id)) return prev; const n = new Set(prev); n.add(id); return n; });
@@ -181,11 +183,40 @@
 
     function openCal(it) { setCalItem(it); setCalOpen(true); }
 
-    function analyze(l, instant) {
+    async function analyze(input, instant) {
+      const Matcher = window.MedifiLetterMatcher;
+      const isTextJob = input && typeof input === "object" && input.text && !input.headline;
+
+      if (isTextJob) {
+        setProcessing(true);
+        setProcessingMsg("Medifi AI is reading your letter…");
+        setProcessingSub("Summarising in plain English and checking for admin risks.");
+        try {
+          const letter = await Matcher.letterFromExtractedText(input.text);
+          setLetter(letter);
+          setScreen("result");
+        } catch (err) {
+          flash(err.message || "Could not analyse this letter.");
+        } finally {
+          setProcessing(false);
+          setProcessingMsg("");
+          setProcessingSub("");
+        }
+        return;
+      }
+
+      const l = input;
       setLetter(l);
       if (instant) { setScreen("result"); return; }
       setProcessing(true);
-      setTimeout(() => { setProcessing(false); setScreen("result"); }, 1500);
+      setProcessingMsg(l && l.fromLLM ? "Medifi AI is reading your letter…" : "Reading your letter…");
+      setProcessingSub("Finding the date, place, and what to do next.");
+      window.setTimeout(() => {
+        setProcessing(false);
+        setProcessingMsg("");
+        setProcessingSub("");
+        setScreen("result");
+      }, l && l.fromLLM ? 800 : 1500);
     }
     function open(l) { setLetter(l); setScreen("result"); }
     function goHome() { setScreen("home"); }
@@ -212,7 +243,7 @@
           unread={unread}
         />
         <main className="mf-body">
-          {processing ? <Processing /> : (
+          {processing ? <Processing message={processingMsg} sub={processingSub} /> : (
             <React.Fragment>
               {screen === "home" && <window.HomeScreen onScan={() => setScreen("scan")} onOpen={open} onSeeAll={() => setScreen("letters")} />}
               {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}

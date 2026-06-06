@@ -15,8 +15,34 @@
     const [langOpen, setLangOpen] = React.useState(false);
     const [q, setQ] = React.useState("");
     const [asked, setAsked] = React.useState(false);
+    const [answer, setAnswer] = React.useState("");
+    const [asking, setAsking] = React.useState(false);
+    const [askError, setAskError] = React.useState("");
     const [toast, setToast] = React.useState(false);
     const toggle = (id) => setDone((d) => ({ ...d, [id]: !d[id] }));
+
+    async function handleAsk() {
+      if (!q.trim()) return;
+      setAsking(true);
+      setAskError("");
+      setAsked(false);
+      try {
+        if (window.MedifiLLM && await window.MedifiLLM.isAvailable()) {
+          const a = await window.MedifiLLM.askQuestion(letter.original, letter.summary, q.trim());
+          setAnswer(a);
+        } else {
+          setAnswer(
+            "From this letter: " + letter.summary
+            + " If anything is still unclear, call the contact on your letter or your GP — and always check against the original."
+          );
+        }
+        setAsked(true);
+      } catch (err) {
+        setAskError(err.message || "Could not get an answer.");
+      } finally {
+        setAsking(false);
+      }
+    }
 
     function shareCarer() {
       setToast(true);
@@ -24,8 +50,6 @@
       shareCarer._t = window.setTimeout(() => setToast(false), 2800);
     }
 
-    const answer = "From this letter: " + letter.summary +
-      " If anything is still unclear, call the contact on your letter or your GP — and always check against the original.";
     const riskCount = letter.risks.filter((r) => r.level !== "safe").length;
 
     return (
@@ -110,11 +134,23 @@
                 <div className="mf-ask__row">
                   <Input placeholder="e.g. What do I need to bring?"
                     value={q} onChange={(e) => setQ(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) setAsked(true); }} />
+                    onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) handleAsk(); }} />
                   <Button variant="secondary" iconLeft={<Icon name="arrowRight" size={18} />}
-                    disabled={!q.trim()} onClick={() => setAsked(true)} aria-label="Ask" />
+                    disabled={!q.trim() || asking} onClick={handleAsk} aria-label="Ask" />
                 </div>
-                {asked && (
+                {asking && (
+                  <div className="mf-ask__answer">
+                    <Icon name="sparkle" size={18} />
+                    <span>Thinking…</span>
+                  </div>
+                )}
+                {askError && (
+                  <div className="mf-banner">
+                    <Icon name="alert" size={18} />
+                    <span>{askError}</span>
+                  </div>
+                )}
+                {asked && answer && !asking && (
                   <div className="mf-ask__answer">
                     <Icon name="sparkle" size={18} />
                     <span>{answer}</span>

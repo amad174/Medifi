@@ -1,4 +1,4 @@
-/* Match OCR/pasted text to demo samples only when clearly similar; otherwise parse for real. */
+/* Match demo samples when obvious; otherwise parse with LLM or rules. */
 
 (function () {
   const MIN_SAMPLE_SCORE = 28;
@@ -40,25 +40,39 @@
     return bestScore >= MIN_SAMPLE_SCORE ? best : null;
   }
 
-  function letterFromExtractedText(rawText) {
+  function letterFromExtractedTextSync(rawText) {
     const trimmed = (rawText || "").trim();
     if (!trimmed) return null;
 
     const sample = matchSampleLetter(trimmed);
     if (sample) {
-      return {
-        ...sample,
-        original: trimmed,
-        fromUpload: true,
-        matchedSample: true,
-      };
+      return { ...sample, original: trimmed, fromUpload: true, matchedSample: true };
+    }
+    return window.MedifiLetterParser.parseLetterFromText(trimmed);
+  }
+
+  async function letterFromExtractedText(rawText) {
+    const trimmed = (rawText || "").trim();
+    if (!trimmed) return null;
+
+    if (window.MedifiLLM) {
+      try {
+        const available = await window.MedifiLLM.isAvailable();
+        if (available) {
+          const plan = await window.MedifiLLM.parseLetter(trimmed);
+          return { ...plan, original: trimmed, fromLLM: true };
+        }
+      } catch (err) {
+        console.warn("[Medifi] LLM parse failed, using rules:", err.message);
+      }
     }
 
-    return window.MedifiLetterParser.parseLetterFromText(trimmed);
+    return letterFromExtractedTextSync(trimmed);
   }
 
   window.MedifiLetterMatcher = {
     matchSampleLetter,
     letterFromExtractedText,
+    letterFromExtractedTextSync,
   };
 })();
