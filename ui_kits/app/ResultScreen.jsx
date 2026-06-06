@@ -9,7 +9,9 @@
   const RTL_LANGS = new Set(["Urdu", "Arabic"]);
   const LEVEL_TONE = { safe: "safe", caution: "caution", risk: "risk" };
 
-  function ResultScreen({ letter, onAddReminders }) {
+  const Routes = window.MedifiRoutes;
+
+  function ResultScreen({ letter, onAddReminders, onPlanRoute }) {
     const [done, setDone] = React.useState({});
     const [showOriginal, setShowOriginal] = React.useState(false);
     const [lang, setLang] = React.useState("English");
@@ -99,6 +101,13 @@
     const view = xlate || letter;
     const isRtl = RTL_LANGS.has(lang);
     const riskCount = view.risks.filter((r) => r.level !== "safe").length;
+    const venue = Routes && Routes.venueForLetter(letter);
+    const bestRoute = venue && Routes ? Routes.bestRoute(venue) : null;
+
+    function handleCheck(c) {
+      if (c.action === "routes" && onPlanRoute) onPlanRoute();
+      else toggle(c.id);
+    }
 
     return (
       <div className="mf-screen mf-screen--result">
@@ -169,6 +178,41 @@
               </button>
               {showOriginal && <pre className="mf-original">{letter.original}</pre>}
             </div>
+
+            {/* Transport routes */}
+            {venue && Routes && (
+              <div className="mf-section">
+                <p className="mf-section__label">Getting there</p>
+                <div className="mf-route-card">
+                  {Routes.hasMap(venue) && <window.MapPreview venue={venue} />}
+                  <div className="mf-route-card__head">
+                    <span className="mf-route-card__icon"><Icon name="pin" size={20} /></span>
+                    <div className="mf-route-card__main">
+                      <span className="mf-route-card__name">{venue.name}</span>
+                      {venue.unit && <span className="mf-route-card__unit">{venue.unit}</span>}
+                      <span className="mf-route-card__addr">{venue.address}</span>
+                    </div>
+                  </div>
+                  {bestRoute && (
+                    <div className="mf-route-card__best">
+                      <Icon name={bestRoute.mode === "walk" ? "walk" : bestRoute.mode === "car" ? "car" : bestRoute.mode === "tube" || bestRoute.mode === "tram" ? "train" : "bus"} size={18} />
+                      <span>
+                        <strong>{bestRoute.label}</strong> · {bestRoute.summary} · {bestRoute.duration}
+                        {letter.event && (
+                          <> · leave by {Routes.leaveBy(letter.event, bestRoute.leaveByOffsetMins)}</>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {venue.estimated && (
+                    <p className="mf-route-card__note">Address not in your letter — confirm when you call.</p>
+                  )}
+                  <Button variant="secondary" fullWidth iconLeft={<Icon name="map" size={18} />} onClick={onPlanRoute}>
+                    See all routes and open maps
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mf-result-grid__side">
@@ -178,7 +222,7 @@
                 {view.checklist.map((c) => (
                   <ChecklistItem key={c.id} label={c.label} meta={c.meta}
                     icon={<Icon name={c.icon} size={20} />}
-                    done={!!done[c.id]} onToggle={() => toggle(c.id)} />
+                    done={!!done[c.id]} onToggle={() => handleCheck(c)} />
                 ))}
               </div>
             </div>

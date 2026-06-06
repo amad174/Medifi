@@ -166,6 +166,7 @@
     const [processing, setProcessing] = React.useState(false);
     const [calOpen, setCalOpen] = React.useState(false);
     const [calItem, setCalItem] = React.useState(null);
+    const [routeOpen, setRouteOpen] = React.useState(false);
     const [readIds, setReadIds] = React.useState(
       () => new Set((window.MEDIFI_UPDATES || []).filter((u) => !u.unread).map((u) => u.id)));
     const [toast, setToast] = React.useState("");
@@ -196,10 +197,12 @@
       checkin: "Check in",
       help: "Help & support",
       account: "Account",
+      health: "Health profile",
       updates: "Updates",
     };
 
     function openCal(it) { setCalItem(it); setCalOpen(true); }
+    function openRoutes() { setRouteOpen(true); }
 
     async function analyze(input, instant) {
       const Matcher = window.MedifiLetterMatcher;
@@ -251,7 +254,8 @@
     function open(l) { setLetter(l); setScreen("result"); }
     function goHome() { setScreen("home"); }
     function goBack() {
-      if (screen === "result" || screen === "scan") goHome();
+      if (screen === "health") setScreen("account");
+      else if (screen === "result" || screen === "scan") goHome();
       else if (screen === "updates") goHome();
       else goHome();
     }
@@ -284,13 +288,20 @@
                 />
               )}
               {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
-              {screen === "result" && letter && <window.ResultScreen letter={letter} onAddReminders={() => openCal(letter)} />}
+              {screen === "result" && letter && (
+                <window.ResultScreen
+                  letter={letter}
+                  onAddReminders={() => openCal(letter)}
+                  onPlanRoute={openRoutes}
+                />
+              )}
               {screen === "letters" && <window.LettersScreen onOpen={open} />}
               {screen === "checkin" && <window.CheckInScreen />}
               {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
-              {screen === "account" && <window.AccountScreen />}
+              {screen === "account" && <window.AccountScreen onOpenHealth={() => setScreen("health")} />}
+              {screen === "health" && <window.HealthScreen onDone={() => setScreen("account")} />}
             </React.Fragment>
           )}
         </main>
@@ -303,6 +314,9 @@
         )}
         {showMobileNav && <BottomNav screen={screen} onNav={setScreen} />}
         {calOpen && calItem && <CalendarSheet letter={calItem} onClose={() => setCalOpen(false)} onDone={calDone} />}
+        {routeOpen && letter && window.MedifiRoutes.venueForLetter(letter) && (
+          <window.TransportSheet letter={letter} onClose={() => setRouteOpen(false)} />
+        )}
         {toast && <Toast>{toast}</Toast>}
       </div>
     );

@@ -13,6 +13,8 @@
       a: "Your letters stay on your device for this demo. Medifi never shares your information without your say-so." },
     { q: "Can I read this in another language?",
       a: "Yes — open a letter and tap Translate. Translated summaries are there to support you; the original English letter remains the source of truth." },
+    { q: "How do transport routes work?",
+      a: "When your letter includes a clinic or hospital, Medifi suggests bus, tube, and driving options with a suggested leave-by time. Open Google Maps or Apple Maps for turn-by-turn directions. Routes are a guide — always check the address on your original letter." },
   ];
 
   function FaqItem({ item, open, onToggle }) {

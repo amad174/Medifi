@@ -12,9 +12,10 @@ A high-fidelity, click-through recreation of the **Medifi patient app**
 
 Plus the "should-have / nice-to-have" touches: real **calendar export**
 (Google Calendar links + downloadable `.ics` with alarms, and recurring
-**medicine reminders** from a prescription), **translation mode**, **ask a
-question about this letter**, **send to a carer**, and interactive **Letters**,
-**Help**, and **Account** screens.
+**medicine reminders** from a prescription), **transport routes** to clinics and
+hospitals (bus/tube/driving options, leave-by times, Google Maps and Apple Maps
+links), **translation mode**, **ask a question about this letter**, **send to a
+carer**, and interactive **Letters**, **Help**, and **Account** screens.
 
 ## Run it
 Open `index.html`. It mounts an interactive phone mock that scales to fit the
@@ -32,6 +33,8 @@ screen to jump straight to its plan.
 - `HelpScreen.jsx` — interactive FAQ + 111/999/GP contacts.
 - `AccountScreen.jsx` — profile, reminder/sharing preferences (real toggles).
 - `calendar.js` — Google Calendar URLs + valid `.ics` generation, incl. recurring medicine reminders.
+- `routes.js` + `TransportSheet.jsx` — venue directory, route suggestions, leave-by times, and maps links.
+- `health.js` + `HealthScreen.jsx` — log weight, height, ethnicity, age, activity, diet; demo AI risk score.
 - `Icons.jsx` — Lucide icon set as one `<Icon name/>` component.
 - `data.js` — four fake (no real patient data) NHS-style letters/prescription and their parsed output.
 
