@@ -22,9 +22,9 @@
     );
   }
 
-  function LettersScreen({ onOpen }) {
+  function LettersScreen({ onOpen, letters }) {
     const [filter, setFilter] = React.useState("all");
-    const all = window.MEDIFI_LETTERS;
+    const all = letters || window.MEDIFI_LETTERS || [];
     const list = filter === "review" ? all.filter((l) => l.worstLevel !== "safe") : all;
     const reviewCount = all.filter((l) => l.worstLevel === "risk").length;
 
@@ -47,6 +47,9 @@
         )}
 
         <div className="mf-list mf-list--letters">
+          {list.length === 0 && (
+            <p className="mf-disclaimer" style={{ textAlign: "left" }}>No letters yet. Scan a letter from Home to add one here.</p>
+          )}
           {list.map((l) => <Row key={l.id} letter={l} onOpen={onOpen} />)}
         </div>
       </div>

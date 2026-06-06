@@ -14,17 +14,39 @@ phone number, vague fasting instructions, conflicting times).
 
 ## Quick start
 
-Serve the repo over HTTP (required for script loading), then open the web app:
+### 1. Add your LLM API key
 
 ```bash
-python3 -m http.server 8765
+cp .env.example .env
 ```
 
-Open **[http://localhost:8765/](http://localhost:8765/)** (redirects to the app) or go directly to **[ui_kits/app/index.html](ui_kits/app/index.html)**.
+Edit `.env` and set your key (OpenAI or Anthropic):
 
-The app is a **responsive web layout** — full-width on desktop with a top nav bar; bottom tab bar on smaller screens. A native mobile app can be added later.
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
 
-Try: **Scan a letter** → pick the **Confusing letter** sample → **Make my plan** to see red risk alerts.
+### 2. Run the server (app + AI proxy)
+
+```bash
+cd server && npm install && npm start
+```
+
+Open **http://localhost:3001/ui_kits/app/index.html**
+
+The Node server serves the app and proxies LLM calls so your API key stays on the server (not in the browser).
+
+### Without AI
+
+If no API key is set, the app falls back to **Tesseract OCR** + rule-based parsing. You can still use `python3 -m http.server 8765` for static-only mode.
+
+### Try it
+
+**Scan a letter** → upload a photo or paste text → **Make my plan**. Check **Account** for AI connection status.
+
+The app is a **responsive web layout** — full-width on desktop with a top nav bar; bottom tab bar on smaller screens.
 
 ## What's in this repo
 

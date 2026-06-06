@@ -24,7 +24,10 @@
     );
   }
 
-  function HomeScreen({ onScan, onOpen, onSeeAll }) {
+  function HomeScreen({ onScan, onOpen, onSeeAll, letters }) {
+    const all = letters || window.MEDIFI_LETTERS || [];
+    const recent = all.slice(0, 5);
+
     return (
       <div className="mf-screen mf-screen--home">
         <div className="mf-greet">
@@ -48,7 +51,7 @@
             <button type="button" className="mf-seeall" onClick={onSeeAll}>See all</button>
           </p>
           <div className="mf-list mf-list--letters">
-            {window.MEDIFI_LETTERS.map((l) => (
+            {recent.map((l) => (
               <LetterRow key={l.id} letter={l} onOpen={onOpen} />
             ))}
           </div>
