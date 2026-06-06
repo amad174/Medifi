@@ -390,6 +390,11 @@ body {
   padding: 10px 12px;
 }
 .mf-xlate-note svg { flex: 0 0 auto; margin-top: 1px; }
+.mf-rtl {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
 
 .mf-summary { font: var(--type-body); margin: 0; color: var(--text-primary); }
 
@@ -612,6 +617,18 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.mf-cam__flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0.85;
+  pointer-events: none;
+  animation: mf-flash 0.18s ease-out forwards;
+}
+@keyframes mf-flash {
+  from { opacity: 0.85; }
+  to { opacity: 0; }
 }
 .mf-cam__error {
   display: flex;

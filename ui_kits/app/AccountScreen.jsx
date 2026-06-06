@@ -72,7 +72,7 @@
               control={<Badge tone={llmTone} dot>{llm && llm.llm ? "On" : "Off"}</Badge>} />
           </div>
           <p className="mf-disclaimer" style={{ textAlign: "left", marginTop: 8 }}>
-            Put your API key in the <strong>.env</strong> file at the project root (copy from <strong>.env.example</strong>), then run <strong>cd server && npm start</strong>.
+            Put your API key in <strong>.env</strong> at the project root (<strong>ANTHROPIC_API_KEY</strong> for Claude), then run <strong>cd server && npm start</strong>.
           </p>
           <div className="mf-ask" style={{ marginTop: 12 }}>
             <Input label="API server URL" placeholder="http://localhost:3001"

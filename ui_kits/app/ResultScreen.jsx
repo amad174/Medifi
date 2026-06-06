@@ -6,6 +6,7 @@
   const Icon = window.Icon;
 
   const LANGS = ["English", "Urdu", "Bengali", "Polish", "Arabic", "Somali"];
+  const RTL_LANGS = new Set(["Urdu", "Arabic"]);
   const LEVEL_TONE = { safe: "safe", caution: "caution", risk: "risk" };
 
   function ResultScreen({ letter, onAddReminders }) {
@@ -13,13 +14,58 @@
     const [showOriginal, setShowOriginal] = React.useState(false);
     const [lang, setLang] = React.useState("English");
     const [langOpen, setLangOpen] = React.useState(false);
+    const [xlate, setXlate] = React.useState(null);
+    const [xlateLoading, setXlateLoading] = React.useState(false);
+    const [xlateError, setXlateError] = React.useState("");
     const [q, setQ] = React.useState("");
     const [asked, setAsked] = React.useState(false);
     const [answer, setAnswer] = React.useState("");
     const [asking, setAsking] = React.useState(false);
     const [askError, setAskError] = React.useState("");
     const [toast, setToast] = React.useState(false);
+    const xlateCache = React.useRef({});
     const toggle = (id) => setDone((d) => ({ ...d, [id]: !d[id] }));
+
+    React.useEffect(function () {
+      setLang("English");
+      setXlate(null);
+      setXlateError("");
+      xlateCache.current = {};
+    }, [letter.id]);
+
+    async function pickLanguage(nextLang) {
+      setLangOpen(false);
+      setXlateError("");
+      if (nextLang === "English") {
+        setLang("English");
+        setXlate(null);
+        return;
+      }
+
+      const cacheKey = letter.id + "::" + nextLang;
+      if (xlateCache.current[cacheKey]) {
+        setLang(nextLang);
+        setXlate(xlateCache.current[cacheKey]);
+        return;
+      }
+
+      setLang(nextLang);
+      setXlateLoading(true);
+      try {
+        if (!window.MedifiLLM || !(await window.MedifiLLM.isAvailable())) {
+          throw new Error("AI is not connected. Add your API key in .env and restart the server.");
+        }
+        const translated = await window.MedifiLLM.translateLetter(letter, nextLang);
+        xlateCache.current[cacheKey] = translated;
+        setXlate(translated);
+      } catch (err) {
+        setXlateError(err.message || "Could not translate.");
+        setLang("English");
+        setXlate(null);
+      } finally {
+        setXlateLoading(false);
+      }
+    }
 
     async function handleAsk() {
       if (!q.trim()) return;
@@ -50,59 +96,70 @@
       shareCarer._t = window.setTimeout(() => setToast(false), 2800);
     }
 
-    const riskCount = letter.risks.filter((r) => r.level !== "safe").length;
+    const view = xlate || letter;
+    const isRtl = RTL_LANGS.has(lang);
+    const riskCount = view.risks.filter((r) => r.level !== "safe").length;
 
     return (
       <div className="mf-screen mf-screen--result">
-        {/* Hero */}
         <div className="mf-hero">
           <Eyebrow tone="accent">Your plan</Eyebrow>
-          <h1 className="mf-hero__h">{letter.headline}</h1>
+          <h1 className={"mf-hero__h" + (isRtl ? " mf-rtl" : "")}>{view.headline}</h1>
           <div className="mf-hero__when">
             <Icon name="clock" size={18} />
-            <span>{letter.when}</span>
+            <span className={isRtl ? "mf-rtl" : ""}>{view.when}</span>
           </div>
         </div>
 
-        {/* Translate banner */}
-        {lang !== "English" && (
+        {xlateLoading && (
+          <div className="mf-xlate-note">
+            <Icon name="languages" size={16} />
+            <span>Translating into {lang}…</span>
+          </div>
+        )}
+
+        {lang !== "English" && !xlateLoading && xlate && (
           <div className="mf-xlate-note">
             <Icon name="languages" size={16} />
             <span>Showing a supportive {lang} summary. Your original English letter is the source of truth.</span>
           </div>
         )}
 
+        {xlateError && (
+          <div className="mf-banner">
+            <Icon name="alert" size={20} />
+            <span>{xlateError}</span>
+          </div>
+        )}
+
         <div className="mf-result-grid">
           <div className="mf-result-grid__main">
-            {/* Risk alerts — the signature feature, near the top */}
             <div className="mf-section">
               <p className="mf-section__label">
                 What to check
-                {riskCount > 0 && <Badge tone={LEVEL_TONE[letter.worstLevel]}>{riskCount} to review</Badge>}
+                {riskCount > 0 && <Badge tone={LEVEL_TONE[view.worstLevel]}>{riskCount} to review</Badge>}
               </p>
               <div className="mf-stack">
-                {letter.risks.map((r, i) => (
+                {view.risks.map((r, i) => (
                   <RiskFlag key={i} level={r.level} title={r.title}
                     action={r.level === "risk" ? <Button variant="danger" size="sm" iconLeft={<Icon name="phone" size={16} />}>Call to check</Button> : null}>
-                    {r.text}
+                    <span className={isRtl ? "mf-rtl" : ""}>{r.text}</span>
                   </RiskFlag>
                 ))}
               </div>
             </div>
 
-            {/* Plain-English summary */}
             <div className="mf-section">
-              <p className="mf-section__label">In plain English</p>
+              <p className="mf-section__label">{lang === "English" ? "In plain English" : "Summary"}</p>
               <Card variant="accent">
-                <p className="mf-summary">{letter.summary}</p>
+                <p className={"mf-summary" + (isRtl ? " mf-rtl" : "")}>{view.summary}</p>
               </Card>
             </div>
 
-            {/* Extracted details */}
             <div className="mf-section">
               <p className="mf-section__label">The details Medifi found</p>
               <Card>
-                {letter.fields.map((f, i) => (
+                {view.fields.map((f, i) => (
                   <FieldRow key={i} label={f.label} value={f.value} missing={f.missing} />
                 ))}
               </Card>
@@ -115,11 +172,10 @@
           </div>
 
           <div className="mf-result-grid__side">
-            {/* Action checklist */}
             <div className="mf-section">
               <p className="mf-section__label">What to do next</p>
               <div className="mf-stack">
-                {letter.checklist.map((c) => (
+                {view.checklist.map((c) => (
                   <ChecklistItem key={c.id} label={c.label} meta={c.meta}
                     icon={<Icon name={c.icon} size={20} />}
                     done={!!done[c.id]} onToggle={() => toggle(c.id)} />
@@ -127,7 +183,6 @@
               </div>
             </div>
 
-            {/* Ask a question about this letter */}
             <div className="mf-section">
               <p className="mf-section__label">Ask about this letter</p>
               <div className="mf-ask">
@@ -159,7 +214,6 @@
               </div>
             </div>
 
-            {/* Medicine reminders */}
             {letter.medicines && (
               <div className="mf-section">
                 <p className="mf-section__label">Medicine reminders</p>
@@ -184,10 +238,10 @@
               </div>
             )}
 
-            {/* Tools */}
             <div className="mf-tools">
-              <button type="button" className="mf-tool" onClick={() => setLangOpen((o) => !o)}>
-                <Icon name="languages" size={20} /><span>{lang === "English" ? "Translate" : lang}</span>
+              <button type="button" className="mf-tool" onClick={() => setLangOpen((o) => !o)} disabled={xlateLoading}>
+                <Icon name="languages" size={20} />
+                <span>{xlateLoading ? "Translating…" : (lang === "English" ? "Translate" : lang)}</span>
               </button>
               <button type="button" className="mf-tool" onClick={shareCarer}>
                 <Icon name="share" size={20} /><span>Send to a carer</span>
@@ -198,7 +252,7 @@
                 {LANGS.map((l) => (
                   <button key={l} type="button"
                     className={"mf-chip" + (lang === l ? " mf-chip--on" : "")}
-                    onClick={() => { setLang(l); setLangOpen(false); }}>{l}</button>
+                    onClick={() => pickLanguage(l)}>{l}</button>
                 ))}
               </div>
             )}

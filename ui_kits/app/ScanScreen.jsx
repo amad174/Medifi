@@ -6,14 +6,52 @@
   const OCR = window.MedifiOCR;
   const Matcher = window.MedifiLetterMatcher;
 
-  function CameraView({ onCancel, onCapture, reading, error }) {
+  /** Map a screen rectangle to source pixels (object-fit: cover). */
+  function mapDisplayRectToSource(sourceW, sourceH, displayEl, targetRect) {
+    const dw = displayEl.clientWidth;
+    const dh = displayEl.clientHeight;
+    const scale = Math.max(dw / sourceW, dh / sourceH);
+    const renderedW = sourceW * scale;
+    const renderedH = sourceH * scale;
+    const offsetX = (renderedW - dw) / 2;
+    const offsetY = (renderedH - dh) / 2;
+    const displayBox = displayEl.getBoundingClientRect();
+    const relX = targetRect.left - displayBox.left;
+    const relY = targetRect.top - displayBox.top;
+    return {
+      sx: Math.max(0, (relX + offsetX) / scale),
+      sy: Math.max(0, (relY + offsetY) / scale),
+      sw: Math.min(sourceW, targetRect.width / scale),
+      sh: Math.min(sourceH, targetRect.height / scale),
+    };
+  }
+
+  function cropSourceToBlob(sourceW, sourceH, drawSource, frameRect, videoEl) {
+    const crop = mapDisplayRectToSource(sourceW, sourceH, videoEl, frameRect);
+    const longEdge = Math.max(crop.sw, crop.sh);
+    const outScale = Math.min(2.5, 3200 / longEdge);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(crop.sw * outScale);
+    canvas.height = Math.round(crop.sh * outScale);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawSource(ctx, crop, canvas.width, canvas.height);
+    return new Promise(function (resolve) {
+      canvas.toBlob(function (blob) { resolve(blob); }, "image/jpeg", 0.97);
+    });
+  }
+
+  function CameraView({ onCancel, onCapture }) {
     const videoRef = React.useRef(null);
+    const viewRef = React.useRef(null);
+    const frameRef = React.useRef(null);
     const streamRef = React.useRef(null);
     const [cameraReady, setCameraReady] = React.useState(false);
-    const [cameraError, setCameraError] = React.useState(error || "");
+    const [cameraError, setCameraError] = React.useState("");
+    const [flash, setFlash] = React.useState(false);
 
     React.useEffect(() => {
-      if (reading) return undefined;
       let cancelled = false;
 
       async function startCamera() {
@@ -23,7 +61,12 @@
         }
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { min: 1280, ideal: 1920, max: 4096 },
+              height: { min: 720, ideal: 1080, max: 4096 },
+              focusMode: { ideal: "continuous" },
+            },
             audio: false,
           });
           if (cancelled) {
@@ -55,58 +98,100 @@
           streamRef.current = null;
         }
       };
-    }, [reading]);
+    }, []);
 
-    function takePhoto() {
+    function stopCamera() {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(function (t) { t.stop(); });
+        streamRef.current = null;
+      }
+      setCameraReady(false);
+    }
+
+    async function takePhoto() {
       const video = videoRef.current;
-      if (!video || !video.videoWidth) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext("2d").drawImage(video, 0, 0);
-      canvas.toBlob(function (blob) {
-        if (blob) onCapture(blob);
-      }, "image/jpeg", 0.92);
+      const viewEl = viewRef.current;
+      const frameEl = frameRef.current;
+      if (!video || !video.videoWidth || !viewEl || !frameEl) return;
+
+      setFlash(true);
+      window.setTimeout(function () { setFlash(false); }, 180);
+
+      const frameRect = frameEl.getBoundingClientRect();
+      let blob = null;
+
+      try {
+        const track = streamRef.current && streamRef.current.getVideoTracks()[0];
+        if (track && typeof window.ImageCapture !== "undefined") {
+          const capture = new window.ImageCapture(track);
+          const photoBlob = await capture.takePhoto();
+          const photoUrl = URL.createObjectURL(photoBlob);
+          const photoImg = await new Promise(function (resolve, reject) {
+            const img = new Image();
+            img.onload = function () { URL.revokeObjectURL(photoUrl); resolve(img); };
+            img.onerror = reject;
+            img.src = photoUrl;
+          });
+          blob = await cropSourceToBlob(
+            photoImg.naturalWidth,
+            photoImg.naturalHeight,
+            function (ctx, crop, outW, outH) {
+              ctx.drawImage(photoImg, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, outW, outH);
+            },
+            frameRect,
+            video
+          );
+        }
+      } catch (_) {
+        blob = null;
+      }
+
+      if (!blob) {
+        blob = await cropSourceToBlob(
+          video.videoWidth,
+          video.videoHeight,
+          function (ctx, crop, outW, outH) {
+            ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, outW, outH);
+          },
+          frameRect,
+          video
+        );
+      }
+
+      stopCamera();
+      if (blob) onCapture(blob);
     }
 
     return (
       <div className="mf-cam">
         <div className="mf-cam__top">
-          <button type="button" className="mf-cam__btn" aria-label="Cancel" onClick={onCancel} disabled={reading}>
+          <button type="button" className="mf-cam__btn" aria-label="Cancel" onClick={onCancel}>
             <Icon name="x" size={22} />
           </button>
-          <span className="t">{reading ? "Reading…" : "Take a photo"}</span>
+          <span className="t">Take a photo</span>
           <span style={{ width: 40 }} />
         </div>
 
-        <div className="mf-cam__view">
-          {!reading && !cameraError && (
+        <div className="mf-cam__view" ref={viewRef}>
+          {!cameraError && (
             <React.Fragment>
               <video ref={videoRef} className="mf-cam__video" playsInline muted />
-              <div className="mf-cam__frame"><span></span><span></span><span></span><span></span></div>
+              <div className="mf-cam__frame" ref={frameRef}><span></span><span></span><span></span><span></span></div>
+              {flash && <div className="mf-cam__flash" aria-hidden="true" />}
               {!cameraReady && <p className="mf-cam__hint">Starting camera…</p>}
-              {cameraReady && <p className="mf-cam__hint">Line up the whole letter inside the frame</p>}
+              {cameraReady && <p className="mf-cam__hint">Fit the whole letter inside the corners, then tap the button</p>}
             </React.Fragment>
           )}
-          {cameraError && !reading && (
+          {cameraError && (
             <div className="mf-cam__error">
               <Icon name="alert" size={28} />
               <p>{cameraError}</p>
             </div>
           )}
-          {reading && (
-            <React.Fragment>
-              <div className="mf-scanline"></div>
-              <div className="mf-cam__reading">
-                <p className="t">Reading your letter…</p>
-                <p className="s">Finding the date, place, and what to do next.</p>
-              </div>
-            </React.Fragment>
-          )}
         </div>
 
         <div className="mf-cam__bar">
-          {!reading && cameraReady && !cameraError && (
+          {cameraReady && !cameraError && (
             <button type="button" className="mf-cam__shutter" aria-label="Take photo" onClick={takePhoto}></button>
           )}
         </div>
@@ -121,7 +206,7 @@
         <div className="mf-img-preview__meta">
           <span className="mf-img-preview__name">{name}</span>
           {progress != null && !error && (
-            <span className="mf-img-preview__progress">Reading text… {progress}%</span>
+            <span className="mf-img-preview__progress">Claude reading your letter… {progress}%</span>
           )}
           {error && <span className="mf-img-preview__error">{error}</span>}
           {!progress && !error && (
@@ -143,6 +228,7 @@
     const [busy, setBusy] = React.useState(false);
     const [handwriting, setHandwriting] = React.useState(false);
     const [ocrNote, setOcrNote] = React.useState("");
+    const [visionPlan, setVisionPlan] = React.useState(null);
 
     const cameraInputRef = React.useRef(null);
     const fileInputRef = React.useRef(null);
@@ -162,6 +248,7 @@
       setOcrProgress(null);
       setOcrError("");
       setOcrNote("");
+      setVisionPlan(null);
     }
 
     function pickSample(letter) {
@@ -181,6 +268,10 @@
     }
 
     function analyze() {
+      if (visionPlan && visionPlan.original && visionPlan.original.trim() === text.trim()) {
+        onAnalyze(visionPlan);
+        return;
+      }
       analyzeFromText(text, picked && text.trim() === picked.original ? picked : null);
     }
 
@@ -190,10 +281,11 @@
       return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name || "");
     }
 
-    async function processImageFile(file) {
+    async function processImageFile(file, options) {
+      const autoScan = options && options.autoScan;
       if (!isImageFile(file)) {
         setOcrError("Please choose a photo or image file (JPEG, PNG, or WebP).");
-        return false;
+        return { ok: false };
       }
 
       clearImage();
@@ -201,12 +293,49 @@
       setBusy(true);
       setOcrError("");
       setOcrProgress(0);
+      setOcrNote("");
 
       const url = URL.createObjectURL(file);
       setImageUrl(url);
       setImageName(file.name || "Letter photo");
 
       try {
+        if (window.MedifiLLM) {
+          try {
+            const health = await window.MedifiLLM.health();
+            if (health.llm && health.provider === "anthropic") {
+              setOcrNote("Claude is reading your letter photo…");
+              const plan = await window.MedifiLLM.parseLetterImage(file, setOcrProgress);
+              const extracted = (plan.original || "").trim();
+              if (extracted.replace(/\s/g, "").length >= 6) {
+                setVisionPlan(plan);
+                setText(extracted);
+                setPicked(null);
+                setOcrProgress(null);
+                setBusy(false);
+                setOcrNote(
+                  autoScan
+                    ? "Letter read — building your plan…"
+                    : "Claude read your letter — check the text below, then tap Make my plan."
+                );
+                return { ok: true, text: extracted, plan: plan };
+              }
+            }
+          } catch (visionErr) {
+            const msg = visionErr.message || "Claude could not read this photo.";
+            const hardFail = /API error|No API key|not valid JSON|not reachable/i.test(msg);
+            if (hardFail) {
+              setOcrError(msg);
+              setBusy(false);
+              setOcrProgress(null);
+              return { ok: false };
+            }
+            console.warn("[Medifi] Claude vision failed, using OCR:", msg);
+            setOcrNote("");
+            setOcrProgress(0);
+          }
+        }
+
         const extracted = await OCR.readImage(file, setOcrProgress, { handwriting });
         if (!extracted || extracted.replace(/\s/g, "").length < 6) {
           setOcrError(
@@ -216,19 +345,24 @@
           );
           setBusy(false);
           setOcrProgress(null);
-          return false;
+          return { ok: false };
         }
+        setVisionPlan(null);
         setText(extracted);
         setPicked(null);
         setOcrProgress(null);
         setBusy(false);
-        setOcrNote("Text read from your image — check it below, then tap Make my plan.");
-        return true;
+        setOcrNote(
+          autoScan
+            ? "Photo captured — building your plan…"
+            : "Text read from your image — check it below, then tap Make my plan."
+        );
+        return { ok: true, text: extracted };
       } catch (err) {
         setOcrError(err.message || "Could not read this image. Try again or paste the text.");
         setBusy(false);
         setOcrProgress(null);
-        return false;
+        return { ok: false };
       }
     }
 
@@ -239,10 +373,14 @@
     }
 
     async function handleCameraCapture(blob) {
-      setMode("reading");
+      setMode("form");
       const file = new File([blob], "letter-photo.jpg", { type: "image/jpeg" });
-      const ok = await processImageFile(file);
-      if (!ok) setMode("form");
+      const result = await processImageFile(file, { autoScan: true });
+      if (result.ok && result.plan) {
+        onAnalyze(result.plan);
+      } else if (result.ok && result.text) {
+        analyzeFromText(result.text, null);
+      }
     }
 
     function openCamera() {
@@ -257,10 +395,9 @@
       cameraInputRef.current?.click();
     }
 
-    if (mode === "camera" || mode === "reading") {
+    if (mode === "camera") {
       return (
         <CameraView
-          reading={mode === "reading" || busy}
           onCancel={() => setMode("form")}
           onCapture={handleCameraCapture}
         />
@@ -302,7 +439,7 @@
           <button type="button" className="mf-tile" onClick={openCamera}>
             <span className="mf-tile__icon"><Icon name="camera" size={26} /></span>
             <span className="mf-tile__t">Take a photo</span>
-            <span className="mf-tile__s">Use your device camera</span>
+            <span className="mf-tile__s">Tap once to capture, then we scan it</span>
           </button>
           <button type="button" className="mf-tile mf-tile--alt" onClick={openFilePicker}>
             <span className="mf-tile__icon"><Icon name="file" size={26} /></span>

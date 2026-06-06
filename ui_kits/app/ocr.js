@@ -1,7 +1,8 @@
-/* OCR helper — reads printed and handwritten text from images using Tesseract.js. */
+/* OCR helper — reads text from images using Tesseract.js (two quality passes, sequential). */
 
 (function () {
   const PSM = { AUTO: "3", SINGLE_BLOCK: "6", SPARSE: "11" };
+  const OCR_TIMEOUT_MS = 120000;
 
   function ensureTesseract() {
     if (window.Tesseract) return Promise.resolve(window.Tesseract);
@@ -21,9 +22,8 @@
     });
   }
 
-  /** Upscale, grayscale, and boost contrast — helps printed photos and handwriting. */
   function preprocessImage(img, mode) {
-    const scale = Math.max(1, Math.min(2.5, 2200 / Math.max(img.width, img.height)));
+    const scale = Math.max(1, Math.min(2.5, 2400 / Math.max(img.width, img.height)));
     const w = Math.round(img.width * scale);
     const h = Math.round(img.height * scale);
     const canvas = document.createElement("canvas");
@@ -36,7 +36,7 @@
 
     const imageData = ctx.getImageData(0, 0, w, h);
     const data = imageData.data;
-    const contrast = mode === "handwriting" ? 1.55 : 1.25;
+    const contrast = mode === "handwriting" ? 1.55 : 1.28;
     const threshold = mode === "handwriting" ? 155 : 0;
 
     for (let i = 0; i < data.length; i += 4) {
@@ -56,6 +56,9 @@
         if (onProgress && m.status === "recognizing text" && typeof m.progress === "number") {
           onProgress(Math.round(m.progress * 100 * weight));
         }
+        if (onProgress && m.status === "loading language traineddata") {
+          onProgress(1);
+        }
       },
     }).then(function (result) {
       const text = (result.data && result.data.text) ? result.data.text.trim() : "";
@@ -65,36 +68,72 @@
   }
 
   function pickBest(results) {
-    const viable = results.filter((r) => r.len >= 8);
-    if (!viable.length) return results.sort((a, b) => b.len - a.len)[0] || { text: "", conf: 0 };
-
-    viable.sort((a, b) => {
-      const scoreA = a.len + a.conf * 0.5;
-      const scoreB = b.len + b.conf * 0.5;
-      return scoreB - scoreA;
+    const viable = results.filter(function (r) { return r.len >= 8; });
+    const pool = viable.length ? viable : results;
+    pool.sort(function (a, b) {
+      return (b.len + b.conf * 0.6) - (a.len + a.conf * 0.6);
     });
-    return viable[0];
+    return pool[0] || { text: "", conf: 0 };
   }
 
-  function readImage(fileOrBlob, onProgress, options) {
-    const handwriting = options && options.handwriting;
-    return ensureTesseract().then(async function (Tesseract) {
-      const img = await loadImage(fileOrBlob);
-      const enhanced = preprocessImage(img, handwriting ? "handwriting" : "print");
-      const hwCanvas = preprocessImage(img, "handwriting");
-
-      if (onProgress) onProgress(5);
-
-      const passes = [
-        runPass(Tesseract, fileOrBlob, PSM.AUTO, onProgress, 0.3),
-        runPass(Tesseract, enhanced, PSM.SINGLE_BLOCK, onProgress, 0.25),
-        runPass(Tesseract, hwCanvas, PSM.SPARSE, onProgress, 0.4),
-      ];
-
-      const results = await Promise.all(passes);
-      if (onProgress) onProgress(100);
-      return pickBest(results).text;
+  function withTimeout(promise, ms, message) {
+    return new Promise(function (resolve, reject) {
+      const timer = window.setTimeout(function () {
+        reject(new Error(message));
+      }, ms);
+      promise.then(
+        function (v) { window.clearTimeout(timer); resolve(v); },
+        function (e) { window.clearTimeout(timer); reject(e); }
+      );
     });
+  }
+
+  async function readImage(fileOrBlob, onProgress, options) {
+    const handwriting = options && options.handwriting;
+    const Tesseract = await ensureTesseract();
+    const img = await loadImage(fileOrBlob);
+    const enhanced = preprocessImage(img, handwriting ? "handwriting" : "enhanced");
+    const alt = handwriting
+      ? preprocessImage(img, "handwriting")
+      : preprocessImage(img, "enhanced");
+
+    if (onProgress) onProgress(2);
+
+    const pass1 = await withTimeout(
+      runPass(Tesseract, enhanced, PSM.SINGLE_BLOCK, onProgress, 0.5),
+      OCR_TIMEOUT_MS,
+      "Reading the photo took too long. Paste the letter text instead, or try a smaller image."
+    );
+
+    if (onProgress) onProgress(50);
+
+    const pass2 = await withTimeout(
+      runPass(Tesseract, alt, handwriting ? PSM.SPARSE : PSM.AUTO, onProgress, 0.5),
+      OCR_TIMEOUT_MS,
+      "Reading the photo took too long. Paste the letter text instead, or try a smaller image."
+    );
+
+    if (onProgress) onProgress(100);
+    const best = pickBest([pass1, pass2]);
+    const merged = mergeOcrResults([pass1, pass2]);
+    return merged.replace(/\s/g, "").length > best.len ? merged : best.text;
+  }
+
+  function mergeOcrResults(results) {
+    const texts = results.map(function (r) { return r.text; }).filter(Boolean);
+    if (texts.length < 2) return texts[0] || "";
+    const lines = [];
+    const seen = new Set();
+    texts.forEach(function (text) {
+      text.split(/\n+/).forEach(function (line) {
+        const key = line.replace(/\s+/g, " ").trim().toLowerCase();
+        if (key.length > 2 && !seen.has(key)) {
+          seen.add(key);
+          lines.push(line.trim());
+        }
+      });
+    });
+    return lines.join("\n");
   }
 
   window.MedifiOCR = { readImage };

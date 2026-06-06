@@ -73,11 +73,18 @@
   }
 
   function Processing({ message, sub }) {
+    const [secs, setSecs] = React.useState(0);
+    React.useEffect(function () {
+      setSecs(0);
+      const id = window.setInterval(function () { setSecs((s) => s + 1); }, 1000);
+      return function () { window.clearInterval(id); };
+    }, []);
     return (
       <div className="mf-processing">
         <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
         <p className="mf-processing__t">{message || "Reading your letter…"}</p>
         <p className="mf-processing__s">{sub || "Finding the date, place, and what to do next."}</p>
+        <p className="mf-processing__s">Usually 10–45 seconds with Claude · {secs}s</p>
       </div>
     );
   }
@@ -167,6 +174,19 @@
     const [toast, setToast] = React.useState("");
     const [processingMsg, setProcessingMsg] = React.useState("");
     const [processingSub, setProcessingSub] = React.useState("");
+    const [lettersVersion, setLettersVersion] = React.useState(0);
+
+    const allLetters = React.useMemo(function () {
+      return window.MedifiLetterStore
+        ? window.MedifiLetterStore.getAllLetters()
+        : (window.MEDIFI_LETTERS || []);
+    }, [lettersVersion]);
+
+    function saveToLibrary(l) {
+      if (window.MedifiLetterStore && window.MedifiLetterStore.saveLetter(l)) {
+        setLettersVersion(function (v) { return v + 1; });
+      }
+    }
 
     const markRead = React.useCallback((id) => {
       setReadIds((prev) => { if (prev.has(id)) return prev; const n = new Set(prev); n.add(id); return n; });
@@ -185,7 +205,15 @@
 
     async function analyze(input, instant) {
       const Matcher = window.MedifiLetterMatcher;
+      const isReadyPlan = input && typeof input === "object" && input.headline && input.summary;
       const isTextJob = input && typeof input === "object" && input.text && !input.headline;
+
+      if (isReadyPlan) {
+        saveToLibrary(input);
+        setLetter(input);
+        setScreen("result");
+        return;
+      }
 
       if (isTextJob) {
         setProcessing(true);
@@ -193,10 +221,14 @@
         setProcessingSub("Summarising in plain English and checking for admin risks.");
         try {
           const letter = await Matcher.letterFromExtractedText(input.text);
+          saveToLibrary(letter);
           setLetter(letter);
           setScreen("result");
         } catch (err) {
-          flash(err.message || "Could not analyse this letter.");
+          const msg = err.name === "AbortError"
+            ? "This is taking too long. Check your API key in .env and try a shorter letter, or paste the text instead."
+            : (err.message || "Could not analyse this letter.");
+          flash(msg);
         } finally {
           setProcessing(false);
           setProcessingMsg("");
@@ -245,10 +277,17 @@
         <main className="mf-body">
           {processing ? <Processing message={processingMsg} sub={processingSub} /> : (
             <React.Fragment>
-              {screen === "home" && <window.HomeScreen onScan={() => setScreen("scan")} onOpen={open} onSeeAll={() => setScreen("letters")} />}
+              {screen === "home" && (
+                <window.HomeScreen
+                  letters={allLetters}
+                  onScan={() => setScreen("scan")}
+                  onOpen={open}
+                  onSeeAll={() => setScreen("letters")}
+                />
+              )}
               {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
               {screen === "result" && letter && <window.ResultScreen letter={letter} onAddReminders={() => openCal(letter)} />}
-              {screen === "letters" && <window.LettersScreen onOpen={open} />}
+              {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
               {screen === "account" && <window.AccountScreen />}

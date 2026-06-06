@@ -63,7 +63,7 @@
           return { ...plan, original: trimmed, fromLLM: true };
         }
       } catch (err) {
-        console.warn("[Medifi] LLM parse failed, using rules:", err.message);
+        throw err;
       }
     }
 
