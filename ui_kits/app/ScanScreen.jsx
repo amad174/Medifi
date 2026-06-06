@@ -4,6 +4,7 @@
   const { Button, Input } = window.MedifiDesignSystem_063852;
   const Icon = window.Icon;
   const OCR = window.MedifiOCR;
+  const PDF = window.MedifiPdf;
   const Matcher = window.MedifiLetterMatcher;
 
   /** Map a screen rectangle to source pixels (object-fit: cover). */
@@ -242,7 +243,7 @@
     }, [imageUrl]);
 
     function clearImage() {
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      if (imageUrl && imageUrl.indexOf("blob:") === 0) URL.revokeObjectURL(imageUrl);
       setImageUrl("");
       setImageName("");
       setOcrProgress(null);
@@ -281,6 +282,37 @@
       return /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name || "");
     }
 
+    async function tryClaudeVision(file, autoScan) {
+      if (!window.MedifiLLM) return null;
+      try {
+        const health = await window.MedifiLLM.health();
+        if (!health.llm || health.provider !== "anthropic") return null;
+        setOcrNote("Claude is reading your letter…");
+        const plan = await window.MedifiLLM.parseLetterImage(file, setOcrProgress);
+        const extracted = (plan.original || "").trim();
+        if (extracted.replace(/\s/g, "").length < 6) return null;
+        setVisionPlan(plan);
+        setText(extracted);
+        setPicked(null);
+        setOcrProgress(null);
+        setBusy(false);
+        setOcrNote(
+          autoScan
+            ? "Letter read — building your plan…"
+            : "Claude read your letter — check the text below, then tap Make my plan."
+        );
+        return { ok: true, text: extracted, plan: plan };
+      } catch (visionErr) {
+        const msg = visionErr.message || "Claude could not read this file.";
+        const hardFail = /API error|No API key|not valid JSON|not reachable/i.test(msg);
+        if (hardFail) throw visionErr;
+        console.warn("[Medifi] Claude vision failed:", msg);
+        setOcrNote("");
+        setOcrProgress(0);
+        return null;
+      }
+    }
+
     async function processImageFile(file, options) {
       const autoScan = options && options.autoScan;
       if (!isImageFile(file)) {
@@ -300,41 +332,17 @@
       setImageName(file.name || "Letter photo");
 
       try {
-        if (window.MedifiLLM) {
-          try {
-            const health = await window.MedifiLLM.health();
-            if (health.llm && health.provider === "anthropic") {
-              setOcrNote("Claude is reading your letter photo…");
-              const plan = await window.MedifiLLM.parseLetterImage(file, setOcrProgress);
-              const extracted = (plan.original || "").trim();
-              if (extracted.replace(/\s/g, "").length >= 6) {
-                setVisionPlan(plan);
-                setText(extracted);
-                setPicked(null);
-                setOcrProgress(null);
-                setBusy(false);
-                setOcrNote(
-                  autoScan
-                    ? "Letter read — building your plan…"
-                    : "Claude read your letter — check the text below, then tap Make my plan."
-                );
-                return { ok: true, text: extracted, plan: plan };
-              }
-            }
-          } catch (visionErr) {
-            const msg = visionErr.message || "Claude could not read this photo.";
-            const hardFail = /API error|No API key|not valid JSON|not reachable/i.test(msg);
-            if (hardFail) {
-              setOcrError(msg);
-              setBusy(false);
-              setOcrProgress(null);
-              return { ok: false };
-            }
-            console.warn("[Medifi] Claude vision failed, using OCR:", msg);
-            setOcrNote("");
-            setOcrProgress(0);
-          }
+        let vision = null;
+        try {
+          setOcrNote("Claude is reading your letter photo…");
+          vision = await tryClaudeVision(file, autoScan);
+        } catch (visionErr) {
+          setOcrError(visionErr.message || "Claude could not read this photo.");
+          setBusy(false);
+          setOcrProgress(null);
+          return { ok: false };
         }
+        if (vision) return vision;
 
         const extracted = await OCR.readImage(file, setOcrProgress, { handwriting });
         if (!extracted || extracted.replace(/\s/g, "").length < 6) {
@@ -366,10 +374,67 @@
       }
     }
 
+    async function processPdfFile(file) {
+      if (!PDF || !PDF.isPdfFile(file)) {
+        setOcrError("Please choose a PDF file.");
+        return { ok: false };
+      }
+
+      clearImage();
+      setPicked(null);
+      setBusy(true);
+      setOcrError("");
+      setOcrProgress(0);
+      setOcrNote("Reading your PDF…");
+      setImageName(file.name || "Letter.pdf");
+
+      try {
+        const result = await PDF.readPdf(file, setOcrProgress, { handwriting });
+        if (result.previewUrl) setImageUrl(result.previewUrl);
+
+        let extracted = (result.text || "").trim();
+        if (extracted.replace(/\s/g, "").length < 80) {
+          setOcrNote("Scanned PDF — using Claude on the first page…");
+          const pageFile = await PDF.pdfFirstPageToFile(file);
+          try {
+            const vision = await tryClaudeVision(pageFile, false);
+            if (vision) return vision;
+          } catch (visionErr) {
+            if (/API error|No API key|not valid JSON|not reachable/i.test(visionErr.message || "")) {
+              throw visionErr;
+            }
+          }
+        }
+
+        if (!extracted || extracted.replace(/\s/g, "").length < 6) {
+          setOcrError("Could not read text from this PDF. Try a clearer scan or paste the text below.");
+          setBusy(false);
+          setOcrProgress(null);
+          return { ok: false };
+        }
+
+        setVisionPlan(null);
+        setText(extracted);
+        setOcrProgress(null);
+        setBusy(false);
+        setOcrNote(
+          "PDF read (" + result.pageCount + " page" + (result.pageCount === 1 ? "" : "s") + ") — check the text, then tap Make my plan."
+        );
+        return { ok: true, text: extracted };
+      } catch (err) {
+        setOcrError(err.message || "Could not read this PDF. Try again or paste the text.");
+        setBusy(false);
+        setOcrProgress(null);
+        return { ok: false };
+      }
+    }
+
     function handleFileChange(e) {
       const file = e.target.files && e.target.files[0];
       e.target.value = "";
-      if (file) processImageFile(file);
+      if (!file) return;
+      if (PDF && PDF.isPdfFile(file)) processPdfFile(file);
+      else processImageFile(file);
     }
 
     async function handleCameraCapture(blob) {
@@ -409,7 +474,7 @@
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,image/heif,.heic,.heif"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/heic,image/heif,.heic,.heif,application/pdf,.pdf"
           className="mf-sr-only"
           onChange={handleFileChange}
         />
@@ -443,8 +508,8 @@
           </button>
           <button type="button" className="mf-tile mf-tile--alt" onClick={openFilePicker}>
             <span className="mf-tile__icon"><Icon name="file" size={26} /></span>
-            <span className="mf-tile__t">Upload image</span>
-            <span className="mf-tile__s">Choose a photo from your files</span>
+            <span className="mf-tile__t">Upload file</span>
+            <span className="mf-tile__s">Photo or PDF from your files</span>
           </button>
           <button type="button" className="mf-tile mf-tile--alt" onClick={openNativeCamera}>
             <span className="mf-tile__icon"><Icon name="scan" size={26} /></span>

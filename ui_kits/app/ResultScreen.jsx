@@ -23,6 +23,9 @@
     const [asking, setAsking] = React.useState(false);
     const [askError, setAskError] = React.useState("");
     const [toast, setToast] = React.useState(false);
+    const [toastMsg, setToastMsg] = React.useState("");
+    const [shareOpen, setShareOpen] = React.useState(false);
+    const [shareText, setShareText] = React.useState("");
     const xlateCache = React.useRef({});
     const toggle = (id) => setDone((d) => ({ ...d, [id]: !d[id] }));
 
@@ -90,10 +93,50 @@
       }
     }
 
-    function shareCarer() {
+    function showToast(msg) {
+      setToastMsg(msg);
       setToast(true);
-      window.clearTimeout(shareCarer._t);
-      shareCarer._t = window.setTimeout(() => setToast(false), 2800);
+      window.clearTimeout(showToast._t);
+      showToast._t = window.setTimeout(function () { setToast(false); }, 3200);
+    }
+
+    async function shareCarer() {
+      const Share = window.MedifiShare;
+      if (!Share) return;
+      const currentView = xlate || letter;
+      const text = Share.buildShareText(letter, currentView, lang);
+      const result = await Share.sharePlan(letter, currentView, lang);
+      if (result.ok) {
+        showToast(result.message || "Shared with your carer.");
+        return;
+      }
+      if (result.cancelled) return;
+      setShareText(text);
+      setShareOpen(true);
+    }
+
+    async function copyForCarer() {
+      const ok = await window.MedifiShare.copyText(shareText);
+      setShareOpen(false);
+      showToast(ok ? "Summary copied — paste into a message for your carer." : "Could not copy. Select and copy the text manually.");
+    }
+
+    function shareWhatsApp() {
+      window.open(window.MedifiShare.whatsAppUrl(shareText), "_blank", "noopener,noreferrer");
+      setShareOpen(false);
+      showToast("Opening WhatsApp…");
+    }
+
+    function shareEmail() {
+      window.location.href = window.MedifiShare.mailtoUrl(letter, shareText);
+      setShareOpen(false);
+      showToast("Opening your email app…");
+    }
+
+    async function shareNativeFromSheet() {
+      const result = await window.MedifiShare.nativeShare(letter, shareText);
+      setShareOpen(false);
+      if (result.ok) showToast(result.message || "Shared.");
     }
 
     const view = xlate || letter;
@@ -261,10 +304,43 @@
 
         <p className="mf-disclaimer">Medifi explains and organises NHS information. It does not give medical advice. Always check against your original letter.</p>
 
+        {shareOpen && (
+          <div className="mf-sheet-scrim" onClick={() => setShareOpen(false)} role="presentation">
+            <div className="mf-sheet" role="dialog" aria-labelledby="share-sheet-title" onClick={(e) => e.stopPropagation()}>
+              <div className="mf-sheet__grip" aria-hidden="true"></div>
+              <h3 className="mf-sheet__title" id="share-sheet-title">Send to a carer</h3>
+              <p className="mf-sheet__sub">Share a plain-English summary. No medical advice — they should check the original letter.</p>
+              {typeof navigator !== "undefined" && navigator.share && (
+                <button type="button" className="mf-sheet__opt" onClick={shareNativeFromSheet}>
+                  <Icon name="share" size={22} />
+                  <span><span className="t">Share</span><span className="s">Messages, WhatsApp, email…</span></span>
+                  <Icon name="arrowRight" size={18} />
+                </button>
+              )}
+              <button type="button" className="mf-sheet__opt" onClick={shareWhatsApp}>
+                <Icon name="phone" size={22} />
+                <span><span className="t">WhatsApp</span><span className="s">Send the summary in a chat</span></span>
+                <Icon name="arrowRight" size={18} />
+              </button>
+              <button type="button" className="mf-sheet__opt" onClick={shareEmail}>
+                <Icon name="file" size={22} />
+                <span><span className="t">Email</span><span className="s">Opens your mail app with the summary</span></span>
+                <Icon name="arrowRight" size={18} />
+              </button>
+              <button type="button" className="mf-sheet__opt" onClick={copyForCarer}>
+                <Icon name="check" size={22} />
+                <span><span className="t">Copy summary</span><span className="s">Paste into any app</span></span>
+                <Icon name="arrowRight" size={18} />
+              </button>
+              <button type="button" className="mf-sheet__cancel" onClick={() => setShareOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
         {toast && (
           <div className="mf-toast">
             <Icon name="check" size={18} />
-            <span>Summary sent to your carer.</span>
+            <span>{toastMsg || "Done."}</span>
           </div>
         )}
       </div>
