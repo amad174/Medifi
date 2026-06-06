@@ -10,7 +10,7 @@
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <img src="../../assets/medifi-logo.png" alt="Medifi" style={{ height: 26 }} />
+        <img src="../../assets/medifi-logo.png" alt="Medifi" className="mf-header__logo-img" />
       </button>
     );
   }
