@@ -1,0 +1,238 @@
+/* Three realistic (but fake) NHS-style letters and Medifi's parsed output.
+ * No real patient data. Used by the Medifi app UI kit demo. */
+
+window.MEDIFI_LETTERS = [
+  {
+    id: "derm",
+    event: { title: "Dermatology appointment — St Thomas'", y: 2026, mo: 6, d: 12, h: 10, min: 30, durMins: 30, location: "St Thomas' Hospital, Clinic B" },
+    chip: "Appointment letter",
+    sender: "St Thomas' Hospital · Dermatology",
+    received: "Received 2 days ago",
+    worstLevel: "caution",
+    original:
+`Dear Ms Khan,
+
+NHS number: 485 777 3456
+
+You are invited to attend the Dermatology Outpatient
+Department for a review appointment.
+
+Date: Tuesday 12 June 2026 at 10:30
+Venue: St Thomas' Hospital, Clinic B, 2nd Floor
+
+Please arrive 15 minutes before your appointment and
+bring a list of your current medications. Failure to
+attend may result in discharge back to your GP.
+
+Appointments line: 020 7188 7188`,
+    headline: "Skin (dermatology) appointment",
+    when: "Tuesday 12 June, 10:30am",
+    summary:
+      "You have a skin (dermatology) check-up appointment. Arrive 15 minutes early and bring a list of the medicines you take. If you can't go, call the appointments line so you don't lose your place.",
+    fields: [
+      { label: "Appointment", value: "Dermatology review" },
+      { label: "Date & time", value: "Tue 12 Jun 2026, 10:30am" },
+      { label: "Location", value: "St Thomas', Clinic B, 2nd flr" },
+      { label: "What to bring", value: "List of your medicines" },
+      { label: "Phone", value: "020 7188 7188" },
+    ],
+    checklist: [
+      { id: "cal", label: "Add to your calendar", meta: "Tue 12 Jun, 10:30am", icon: "calendar" },
+      { id: "meds", label: "Write a list of your medicines", icon: "list" },
+      { id: "early", label: "Plan to arrive 15 minutes early", meta: "By 10:15am", icon: "clock" },
+      { id: "id", label: "Bring photo ID and your NHS number", icon: "id" },
+    ],
+    risks: [
+      { level: "caution", title: "No cancellation deadline given",
+        text: "The letter doesn't say how much notice to give if you can't attend. Call the appointments line as soon as you know." },
+      { level: "safe", title: "Date, place and phone number all found",
+        text: "The key details are all present in this letter." },
+    ],
+  },
+  {
+    id: "referral",
+    event: { title: "Chase cardiology referral", y: 2026, mo: 8, d: 30, h: 9, min: 0, durMins: 15, location: "", chase: true },
+    chip: "Referral letter",
+    sender: "GP Surgery · Cardiology referral",
+    received: "Received 5 days ago",
+    worstLevel: "caution",
+    original:
+`Dear Patient,
+
+We have referred you to the Cardiology service following
+your recent appointment. You are now on the waiting list.
+
+The hospital will contact you directly with an appointment
+date. Waiting times are currently 14–18 weeks.
+
+If your symptoms get worse while you wait, contact your GP
+or call 111.`,
+    headline: "Heart (cardiology) referral",
+    when: "Waiting for a date",
+    summary:
+      "Your GP has asked the heart (cardiology) team to see you. You're now on their waiting list. The hospital — not your GP — will write to you with a date. This can take around 14 to 18 weeks.",
+    fields: [
+      { label: "Referred to", value: "Cardiology service" },
+      { label: "Status", value: "On the waiting list" },
+      { label: "Expected wait", value: "14–18 weeks" },
+      { label: "Who contacts you", value: "The hospital" },
+      { label: "Appointment date", missing: true },
+      { label: "Phone", missing: true },
+    ],
+    checklist: [
+      { id: "wait", label: "Note that the hospital will contact you", meta: "Not your GP", icon: "info" },
+      { id: "diary", label: "Set a reminder to chase if nothing arrives", meta: "In about 12 weeks", icon: "clock" },
+      { id: "worse", label: "Save 111 in case symptoms get worse", icon: "phone" },
+    ],
+    risks: [
+      { level: "caution", title: "No phone number to chase your referral",
+        text: "If you hear nothing in 12–14 weeks, the letter doesn't say who to call. Contact your GP surgery and ask for the cardiology booking line." },
+      { level: "caution", title: "No appointment date yet",
+        text: "This is normal for a referral — but keep this letter so you can prove when you were referred." },
+    ],
+  },
+  {
+    id: "badadmin",
+    event: { title: "Endoscopy — City Hospital", y: 2026, mo: 6, d: 2, h: 9, min: 0, durMins: 60, location: "City Hospital, Endoscopy Unit" },
+    chip: "Confusing letter",
+    sender: "City Hospital · Endoscopy unit",
+    received: "Received today",
+    worstLevel: "risk",
+    original:
+`Dear Mr Patient,
+
+Your appointment for an endoscopy is confirmed.
+
+Date: 2 June 2026, 9:00am
+Location: Endoscopy Unit
+
+Please do not eat for several hours before your
+procedure. Someone must collect you afterwards.
+
+We look forward to seeing you.`,
+    headline: "Camera test (endoscopy)",
+    when: "Date may have passed",
+    summary:
+      "This letter is about a camera test of your stomach (endoscopy). Some important details look wrong or missing, so please read the warnings below before you do anything else.",
+    fields: [
+      { label: "Procedure", value: "Endoscopy" },
+      { label: "Date & time", value: "2 Jun 2026, 9:00am" },
+      { label: "Location", value: "Endoscopy Unit (no address)" },
+      { label: "Fasting", value: "\"several hours\" — unclear" },
+      { label: "Phone", missing: true },
+    ],
+    checklist: [
+      { id: "check", label: "Check the date against today", meta: "It may have passed", icon: "alert" },
+      { id: "transport", label: "Arrange someone to collect you", icon: "id" },
+      { id: "gp", label: "Call your GP to confirm this is still booked", icon: "phone" },
+    ],
+    risks: [
+      { level: "risk", title: "This date may have already passed",
+        text: "The letter says 2 June 2026, which is before today. Don't assume it's cancelled — call the hospital or your GP to check before you miss care." },
+      { level: "risk", title: "No phone number on the letter",
+        text: "There's no number to call to confirm or rebook. Look up 'City Hospital endoscopy' or ask your GP surgery for the unit's direct line." },
+      { level: "caution", title: "Fasting time is vague",
+        text: "It says 'do not eat for several hours' but not exactly how long. Ask when you call — fasting too little can mean your test is cancelled on the day." },
+    ],
+  },
+  {
+    id: "rx",
+    chip: "Prescription",
+    sender: "GP Surgery · Repeat prescription",
+    received: "Received 1 hour ago",
+    worstLevel: "caution",
+    medicines: [
+      { name: "Amoxicillin 500mg", dose: "1 capsule", times: ["08:00", "14:00", "20:00"], days: 7, note: "3 times a day, finish the course" },
+      { name: "Ibuprofen 400mg", dose: "1 tablet", times: ["08:00", "20:00"], days: 5, note: "twice a day, with food" },
+    ],
+    original:
+`PRESCRIPTION
+
+Patient: Ms A Khan    NHS number: 485 777 3456
+
+1. Amoxicillin 500mg capsules
+   Take ONE capsule THREE times a day for 7 days.
+
+2. Ibuprofen 400mg tablets
+   Take ONE tablet TWICE a day with food for 5 days.
+
+Collect from: Boots Pharmacy, High Street.
+Speak to your pharmacist if you have questions.`,
+    headline: "Your prescription",
+    when: "Start today",
+    summary:
+      "You have two medicines to take. Amoxicillin is an antibiotic — take it 3 times a day and finish the whole course, even if you feel better. Ibuprofen is for pain — take it twice a day with food.",
+    fields: [
+      { label: "Medicine 1", value: "Amoxicillin 500mg" },
+      { label: "How often", value: "3x a day · 7 days" },
+      { label: "Medicine 2", value: "Ibuprofen 400mg" },
+      { label: "How often", value: "2x a day, with food · 5 days" },
+      { label: "Collect from", value: "Boots, High Street" },
+    ],
+    checklist: [
+      { id: "collect", label: "Collect your medicines from the pharmacy", meta: "Boots, High Street", icon: "pin" },
+      { id: "remind", label: "Set medicine reminders on your calendar", icon: "calendar" },
+      { id: "food", label: "Take ibuprofen with food", icon: "info" },
+      { id: "finish", label: "Finish the whole antibiotic course", meta: "All 7 days", icon: "check" },
+    ],
+    risks: [
+      { level: "caution", title: "Finish the whole antibiotic course",
+        text: "Keep taking Amoxicillin for all 7 days even if you feel better, or the infection can come back. Ask your pharmacist if you're unsure." },
+      { level: "safe", title: "Doses and timings are clear",
+        text: "Both medicines have a clear amount and how often to take them." },
+    ],
+  },
+];
+
+/* One-way updates pushed from the care team to the patient. The patient can
+ * read and act, but cannot reply (see UpdatesScreen's locked composer). */
+window.MEDIFI_UPDATES = [
+  {
+    id: "u1",
+    from: "Dr Amelia Patel",
+    role: "GP · Riverside Surgery",
+    initial: "P",
+    time: "2 hours ago",
+    unread: true,
+    type: "Results",
+    tone: "safe",
+    body: "Good news — your recent blood test results are back and all are within the normal range. There's nothing you need to do. We'll keep this on file for your next review.",
+  },
+  {
+    id: "u2",
+    from: "Dermatology Booking Team",
+    role: "St Thomas' Hospital",
+    initial: "S",
+    time: "Yesterday, 4:12pm",
+    unread: true,
+    type: "Appointment change",
+    tone: "caution",
+    body: "We've had to move your dermatology appointment. It is now Thursday 14 June at 11:00am, Clinic B. Please update your calendar. If this time doesn't work, call the appointments line.",
+    event: { title: "Dermatology appointment (rebooked) — St Thomas'", y: 2026, mo: 6, d: 14, h: 11, min: 0, durMins: 30, location: "St Thomas' Hospital, Clinic B" },
+    summary: "Rebooked dermatology appointment on Thursday 14 June at 11:00am, Clinic B, St Thomas' Hospital.",
+    action: { kind: "calendar", label: "Update my calendar" },
+  },
+  {
+    id: "u3",
+    from: "Boots Pharmacy",
+    role: "High Street",
+    initial: "B",
+    time: "2 days ago",
+    unread: false,
+    type: "Prescription",
+    tone: "brand",
+    body: "Your prescription is ready to collect. We're open until 6pm today. Please bring photo ID if someone is collecting on your behalf.",
+    action: { kind: "call", label: "Call the pharmacy", tel: "02072221234" },
+  },
+  {
+    id: "u4",
+    from: "Riverside Surgery",
+    role: "Practice team",
+    initial: "R",
+    time: "Last week",
+    unread: false,
+    type: "Information",
+    tone: "neutral",
+    body: "Flu and COVID vaccines are now available at the surgery. If you're eligible you'll have received a separate invite — there's no need to reply to this message.",
+  },
+];

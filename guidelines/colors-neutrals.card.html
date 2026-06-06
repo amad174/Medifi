@@ -1,0 +1,33 @@
+<!-- @dsCard group="Colors" viewport="700x210" name="Neutrals & surfaces" subtitle="Ink text scale, hairline borders, calm surfaces" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-card); font-family: var(--font-sans); }
+  .label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 8px; }
+  .row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .sw { flex: 1; }
+  .chip { height: 44px; border-radius: var(--radius-xs); border: 1px solid var(--border-subtle); }
+  .n { font-size: 11px; color: var(--text-secondary); margin-top: 5px; }
+  .h { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <p class="label">Ink — text</p>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--ink-900)"></div><div class="n">900 primary</div></div>
+    <div class="sw"><div class="chip" style="background:var(--ink-600)"></div><div class="n">600 secondary</div></div>
+    <div class="sw"><div class="chip" style="background:var(--ink-500)"></div><div class="n">500 muted</div></div>
+    <div class="sw"><div class="chip" style="background:var(--ink-400)"></div><div class="n">400 disabled</div></div>
+  </div>
+  <p class="label">Surfaces & lines</p>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--canvas)"></div><div class="n">canvas <span class="h">#f3f7fa</span></div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-0)"></div><div class="n">card <span class="h">#ffffff</span></div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper-50)"></div><div class="n">subtle <span class="h">#f7fafc</span></div></div>
+    <div class="sw"><div class="chip" style="background:var(--line-200)"></div><div class="n">border <span class="h">#dfe7ee</span></div></div>
+  </div>
+</body>
+</html>

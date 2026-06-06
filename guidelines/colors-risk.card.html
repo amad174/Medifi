@@ -1,0 +1,46 @@
+<!-- @dsCard group="Colors" viewport="700x230" name="Risk system · traffic light" subtitle="Green safe · Amber check this · Red high risk — the product's signature" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-card); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .flag { border-radius: var(--radius-md); border: 1px solid; padding: 14px 16px; }
+  .flag .lvl { font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+  .flag .desc { font-size: 13px; margin-top: 4px; line-height: 1.4; }
+  .chips { display: flex; gap: 6px; margin-top: 12px; }
+  .c { width: 28px; height: 22px; border-radius: 5px; }
+  .mono { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 8px; }
+  .safe { background: var(--safe-surface); border-color: var(--safe-border); }
+  .safe .lvl, .safe .desc { color: var(--safe-text); }
+  .caution { background: var(--caution-surface); border-color: var(--caution-border); }
+  .caution .lvl, .caution .desc { color: var(--caution-text); }
+  .risk { background: var(--risk-surface); border-color: var(--risk-border); }
+  .risk .lvl, .risk .desc { color: var(--risk-text); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="flag safe">
+      <div class="lvl">Safe</div>
+      <div class="desc">All clear. Nothing to worry about here.</div>
+      <div class="chips"><span class="c" style="background:var(--green-600)"></span><span class="c" style="background:var(--green-100)"></span><span class="c" style="background:var(--green-50)"></span></div>
+      <div class="mono">--safe · #1f8a4c</div>
+    </div>
+    <div class="flag caution">
+      <div class="lvl">Check this</div>
+      <div class="desc">Something is vague or missing. Worth a look.</div>
+      <div class="chips"><span class="c" style="background:var(--amber-600)"></span><span class="c" style="background:var(--amber-100)"></span><span class="c" style="background:var(--amber-50)"></span></div>
+      <div class="mono">--caution · #b26a00</div>
+    </div>
+    <div class="flag risk">
+      <div class="lvl">High risk</div>
+      <div class="desc">Date passed or key detail missing. Act now.</div>
+      <div class="chips"><span class="c" style="background:var(--red-600)"></span><span class="c" style="background:var(--red-100)"></span><span class="c" style="background:var(--red-50)"></span></div>
+      <div class="mono">--risk · #c0362c</div>
+    </div>
+  </div>
+</body>
+</html>

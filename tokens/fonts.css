@@ -1,0 +1,14 @@
+/* Medifi typefaces
+ * Lexend — accessibility-tuned humanist sans, engineered to improve reading
+ *   proficiency and reduce reading fatigue. Used for ALL UI + body + display.
+ *   This directly serves Medifi's core audience: low health-literacy readers,
+ *   carers, and people reading English as a second language.
+ * IBM Plex Mono — used ONLY for verbatim letter text, OCR output, and
+ *   extracted structured fields (dates, NHS numbers, phone numbers).
+ *
+ * Loaded from Google Fonts. SUBSTITUTION NOTE: no proprietary NHS typeface
+ * (Frutiger) is used or shipped — Medifi is an independent third-party tool.
+ * If you want self-hosted woff2 binaries instead of the CDN, ask and we'll
+ * vendor them into tokens/webfonts/.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
