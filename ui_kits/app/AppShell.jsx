@@ -5,12 +5,12 @@
   const Icon = window.Icon;
   const Cal = window.MedifiCal;
 
-  const MAIN_SCREENS = ["home", "letters", "help", "account"];
+  const MAIN_SCREENS = ["home", "letters", "checkin", "help", "account"];
 
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <img src="../../assets/medifi-logo.png" alt="Medifi" className="mf-header__logo-img" />
+        <img src="../../assets/medifi-cat.png" alt="Medifi" className="mf-header__logo-img" />
       </button>
     );
   }
@@ -19,6 +19,7 @@
     const items = [
       { id: "home", label: "Home" },
       { id: "letters", label: "Letters" },
+      { id: "checkin", label: "Check in" },
       { id: "help", label: "Help" },
       { id: "account", label: "Account" },
     ];
@@ -169,6 +170,7 @@
       scan: "Scan a letter",
       result: letter ? letter.sender : "",
       letters: "Your letters",
+      checkin: "Check in",
       help: "Help & support",
       account: "Account",
       updates: "Updates",
@@ -213,6 +215,7 @@
               {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
               {screen === "result" && letter && <window.ResultScreen letter={letter} onAddReminders={() => openCal(letter)} />}
               {screen === "letters" && <window.LettersScreen onOpen={open} />}
+              {screen === "checkin" && <window.CheckInScreen />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
               {screen === "account" && <window.AccountScreen />}
