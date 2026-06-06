@@ -66,6 +66,14 @@
 
   function saveProfile(profile) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    if (window.MedifiAuth && window.MedifiAuth.getToken()) {
+      window.MedifiAuth.saveHealth(profile).catch(function () { /* offline */ });
+    }
+  }
+
+  function hydrateFromServer(health) {
+    if (!health) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign(defaultProfile(), health)));
   }
 
   function bmi(weightKg, heightCm) {
@@ -258,6 +266,7 @@
     DIET_PLANS: DIET_PLANS,
     loadProfile: loadProfile,
     saveProfile: saveProfile,
+    hydrateFromServer: hydrateFromServer,
     bmi: bmi,
     bmiLabel: bmiLabel,
     computeRiskScore: computeRiskScore,

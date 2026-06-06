@@ -1,4 +1,4 @@
-/* Patient sign-up profile — stored on this device (localStorage). */
+/* Patient profile — cached locally; source of truth when signed in is the database. */
 
 (function () {
   var STORAGE_KEY = "medifi-patient-profile";
@@ -118,7 +118,18 @@
     localStorage.removeItem(STORAGE_KEY);
   }
 
+  function hydrateLocal(profile) {
+    if (!profile) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    syncToHealth(profile);
+  }
+
+  function clearLocal() {
+    clear();
+  }
+
   function isRegistered() {
+    if (window.MedifiAuth && window.MedifiAuth.getToken()) return true;
     var p = load();
     return Boolean(p.registeredAt && p.name && p.email);
   }
@@ -148,6 +159,8 @@
     load: load,
     save: save,
     clear: clear,
+    hydrateLocal: hydrateLocal,
+    clearLocal: clearLocal,
     syncToHealth: syncToHealth,
     isRegistered: isRegistered,
     firstName: firstName,

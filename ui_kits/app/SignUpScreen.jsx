@@ -47,8 +47,13 @@
   }
 
   function SignUpScreen({ onComplete, isEdit }) {
+    const [mode, setMode] = React.useState(isEdit ? "edit" : "signup");
     const [form, setForm] = React.useState(function () { return Patient.load(); });
+    const [password, setPassword] = React.useState("");
+    const [confirmPassword, setConfirmPassword] = React.useState("");
     const [error, setError] = React.useState("");
+    const [submitting, setSubmitting] = React.useState(false);
+    const Auth = window.MedifiAuth;
 
     function patch(updates) {
       setForm(function (f) { return Object.assign({}, f, updates); });
@@ -56,9 +61,13 @@
     }
 
     function validate() {
-      if (!(form.name || "").trim()) return "Please enter your name.";
       if (!(form.email || "").trim()) return "Please enter your email.";
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Please enter a valid email address.";
+      if (mode === "login") {
+        if (!password) return "Please enter your password.";
+        return "";
+      }
+      if (!(form.name || "").trim()) return "Please enter your name.";
       var age = parseInt(form.age, 10);
       if (!form.age || age < 1 || age > 120) return "Please enter your age (1–120).";
       if (!form.ethnicity) return "Please choose your ethnicity.";
@@ -68,46 +77,100 @@
       if (!form.diet) return "Please describe your diet.";
       if (!form.sleep) return "Please tell us how your sleep usually is.";
       if (!form.caring) return "Please answer about caring responsibilities.";
+      if (mode === "signup") {
+        if (!password) return "Please enter a password.";
+        if (password.length < 6) return "Password must be at least 6 characters.";
+        if (password !== confirmPassword) return "Passwords do not match.";
+      }
       return "";
     }
 
-    function submit() {
+    async function submit() {
       const msg = validate();
       if (msg) {
         setError(msg);
         return;
       }
       const profile = Object.assign({}, form, {
-        name: form.name.trim(),
-        email: form.email.trim(),
+        name: (form.name || "").trim(),
+        email: form.email.trim().toLowerCase(),
         registeredAt: form.registeredAt || new Date().toISOString(),
       });
-      Patient.save(profile);
-      onComplete(profile);
+      setSubmitting(true);
+      setError("");
+      try {
+        if (mode === "login" && Auth && Auth.firebaseReady()) {
+          const user = await Auth.login(profile.email, password);
+          onComplete(user);
+          return;
+        }
+        if (isEdit && Auth && Auth.firebaseReady() && Auth.getToken()) {
+          const user = await Auth.updateProfile(profile);
+          Patient.save(profile);
+          onComplete(user);
+          return;
+        }
+        if (Auth && Auth.firebaseReady()) {
+          const user = await Auth.signup(profile, password);
+          onComplete(user);
+          return;
+        }
+        Patient.save(profile);
+        onComplete(profile);
+      } catch (err) {
+        setError(err.message || "Something went wrong. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
     }
 
     return (
       <div className="mf-screen mf-screen--signup">
         <div className="mf-signup-hero">
-          <Eyebrow tone="accent">{isEdit ? "Your profile" : "Welcome to Medifi"}</Eyebrow>
-          <h1 className="mf-signup-hero__h">{isEdit ? "Update your details" : "Create your account"}</h1>
+          <Eyebrow tone="accent">{isEdit ? "Your profile" : mode === "login" ? "Welcome back" : "Welcome to Medifi"}</Eyebrow>
+          <h1 className="mf-signup-hero__h">
+            {isEdit ? "Update your details" : mode === "login" ? "Sign in" : "Create your account"}
+          </h1>
           <p className="mf-signup-hero__sub">
             {isEdit
-              ? "Change your details any time. Everything stays on this device."
-              : "A few details help Medifi tailor letter summaries and health tips for you."}
+              ? "Change your details any time. Your account stays signed in on this device."
+              : mode === "login"
+                ? "Enter your email and password to pick up where you left off."
+                : "A few details help Medifi tailor letter summaries and health tips for you."}
           </p>
         </div>
 
+        {!isEdit && (
+          <div className="mf-signup-toggle">
+            <button
+              type="button"
+              className={"mf-chip" + (mode === "signup" ? " mf-chip--on" : "")}
+              onClick={() => { setMode("signup"); setError(""); }}
+            >
+              New account
+            </button>
+            <button
+              type="button"
+              className={"mf-chip" + (mode === "login" ? " mf-chip--on" : "")}
+              onClick={() => { setMode("login"); setError(""); }}
+            >
+              Sign in
+            </button>
+          </div>
+        )}
+
         <div className="mf-section">
-          <p className="mf-section__label">About you</p>
+          <p className="mf-section__label">{mode === "login" ? "Your account" : "About you"}</p>
           <div className="mf-signup-fields">
-            <Input
-              id="signup-name"
-              label="Full name"
-              placeholder="e.g. Aisha Khan"
-              value={form.name}
-              onChange={(e) => patch({ name: e.target.value })}
-            />
+            {mode !== "login" && (
+              <Input
+                id="signup-name"
+                label="Full name"
+                placeholder="e.g. Aisha Khan"
+                value={form.name}
+                onChange={(e) => patch({ name: e.target.value })}
+              />
+            )}
             <Input
               id="signup-email"
               label="Email"
@@ -116,66 +179,116 @@
               value={form.email}
               onChange={(e) => patch({ email: e.target.value })}
             />
-            <Input
-              id="signup-age"
-              label="Age"
-              type="number"
-              inputMode="numeric"
-              placeholder="e.g. 34"
-              value={form.age}
-              onChange={(e) => patch({ age: e.target.value })}
-            />
-            <SelectField
-              label="Ethnicity"
-              value={form.ethnicity}
-              onChange={(v) => patch({ ethnicity: v })}
-              options={Patient.ETHNICITIES}
-            />
+            {mode !== "login" && (
+              <React.Fragment>
+                <Input
+                  id="signup-age"
+                  label="Age"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="e.g. 34"
+                  value={form.age}
+                  onChange={(e) => patch({ age: e.target.value })}
+                />
+                <SelectField
+                  label="Ethnicity"
+                  value={form.ethnicity}
+                  onChange={(v) => patch({ ethnicity: v })}
+                  options={Patient.ETHNICITIES}
+                />
+              </React.Fragment>
+            )}
           </div>
         </div>
 
-        <div className="mf-section">
-          <p className="mf-section__label">A bit about your lifestyle</p>
-          <p className="mf-signup-section__hint">Tap one answer for each question. You can skip sensitive questions by choosing “Prefer not to say”.</p>
-          <div className="mf-signup-questions">
-            <QuestionField
-              label="What is your usual activity level?"
-              value={form.activity}
-              onChange={(v) => patch({ activity: v })}
-              options={Patient.ACTIVITY}
-            />
-            <QuestionField
-              label="Do you smoke or vape?"
-              value={form.smoking}
-              onChange={(v) => patch({ smoking: v })}
-              options={Patient.SMOKING}
-            />
-            <QuestionField
-              label="Do you drink alcohol?"
-              value={form.alcohol}
-              onChange={(v) => patch({ alcohol: v })}
-              options={Patient.ALCOHOL}
-            />
-            <QuestionField
-              label="How would you describe your diet?"
-              value={form.diet}
-              onChange={(v) => patch({ diet: v })}
-              options={Patient.DIET}
-            />
-            <QuestionField
-              label="How is your sleep usually?"
-              value={form.sleep}
-              onChange={(v) => patch({ sleep: v })}
-              options={Patient.SLEEP}
-            />
-            <QuestionField
-              label="Do you have any caring responsibilities?"
-              value={form.caring}
-              onChange={(v) => patch({ caring: v })}
-              options={Patient.CARING}
-            />
+        {mode === "signup" && (
+          <div className="mf-section">
+            <p className="mf-section__label">Create a password</p>
+            <p className="mf-signup-section__hint">You’ll use this to sign in and keep your letters saved after you refresh the page.</p>
+            <div className="mf-signup-fields">
+              <Input
+                id="signup-password"
+                label="Enter a password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Input
+                id="signup-password-confirm"
+                label="Confirm password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Enter your password again"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        )}
+
+        {mode === "login" && (
+          <div className="mf-section">
+            <p className="mf-section__label">Your password</p>
+            <div className="mf-signup-fields">
+              <Input
+                id="signup-password"
+                label="Enter your password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {mode !== "login" && (
+          <div className="mf-section">
+            <p className="mf-section__label">A bit about your lifestyle</p>
+            <p className="mf-signup-section__hint">Tap one answer for each question. You can skip sensitive questions by choosing “Prefer not to say”.</p>
+            <div className="mf-signup-questions">
+              <QuestionField
+                label="What is your usual activity level?"
+                value={form.activity}
+                onChange={(v) => patch({ activity: v })}
+                options={Patient.ACTIVITY}
+              />
+              <QuestionField
+                label="Do you smoke or vape?"
+                value={form.smoking}
+                onChange={(v) => patch({ smoking: v })}
+                options={Patient.SMOKING}
+              />
+              <QuestionField
+                label="Do you drink alcohol?"
+                value={form.alcohol}
+                onChange={(v) => patch({ alcohol: v })}
+                options={Patient.ALCOHOL}
+              />
+              <QuestionField
+                label="How would you describe your diet?"
+                value={form.diet}
+                onChange={(v) => patch({ diet: v })}
+                options={Patient.DIET}
+              />
+              <QuestionField
+                label="How is your sleep usually?"
+                value={form.sleep}
+                onChange={(v) => patch({ sleep: v })}
+                options={Patient.SLEEP}
+              />
+              <QuestionField
+                label="Do you have any caring responsibilities?"
+                value={form.caring}
+                onChange={(v) => patch({ caring: v })}
+                options={Patient.CARING}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mf-banner">
@@ -184,11 +297,11 @@
           </div>
         )}
 
-        <Button variant="primary" size="lg" fullWidth onClick={submit}>
-          {isEdit ? "Save changes" : "Create my account"}
+        <Button variant="primary" size="lg" fullWidth onClick={submit} disabled={submitting}>
+          {submitting ? "Please wait…" : isEdit ? "Save changes" : mode === "login" ? "Sign in" : "Create my account"}
         </Button>
         <p className="mf-disclaimer">
-          Medifi stores this on your device only. It is not shared without your permission. This is not medical advice.
+          Your account and letters are saved in Firebase. This is not medical advice.
         </p>
       </div>
     );

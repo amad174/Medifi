@@ -54,10 +54,30 @@
     return saved.concat(demosOnly);
   }
 
+  function hydrateFromServer(letters) {
+    const list = Array.isArray(letters) ? letters : [];
+    writeSaved(list);
+  }
+
+  function upsertLocal(letter) {
+    if (!shouldSave(letter)) return false;
+    const entry = {
+      ...letter,
+      received: letter.received || "Processed just now",
+      savedAt: Date.now(),
+    };
+    const saved = loadSaved().filter(function (l) { return l.id !== entry.id; });
+    saved.unshift(entry);
+    writeSaved(saved);
+    return true;
+  }
+
   window.MedifiLetterStore = {
     saveLetter,
     getSavedLetters,
     getAllLetters,
     shouldSave,
+    hydrateFromServer,
+    upsertLocal,
   };
 })();

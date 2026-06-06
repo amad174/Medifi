@@ -12,6 +12,8 @@ Open **http://localhost:3001/ui_kits/app/index.html**
 
 Copy `.env.example` to the repo root as `.env` and add your Anthropic API key for letter reading.
 
+**Accounts & saved letters** use **Firebase** (client-side). Copy `ui_kits/app/firebase-config.example.js` to `firebase-config.js`, add your Firebase web app config, enable Email/Password auth, create Firestore, and deploy `firestore.rules` from the repo root.
+
 ## Endpoints
 
 - `GET /api/health` — LLM status

@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 
@@ -450,4 +449,5 @@ app.listen(PORT, () => {
   console.log(`Medifi server  http://localhost:${PORT}`);
   console.log(`App            http://localhost:${PORT}/ui_kits/app/index.html`);
   console.log(`LLM            ${hasLlmKey() ? PROVIDER + " ready" : "NO KEY — copy .env.example to .env"}`);
+  console.log(`Auth & data    Firebase (client-side — see firebase-config.example.js)`);
 });

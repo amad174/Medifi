@@ -161,12 +161,9 @@
   }
 
   function AppShell() {
-    const [screen, setScreen] = React.useState(function () {
-      return window.MedifiPatient && window.MedifiPatient.isRegistered() ? "home" : "signup";
-    });
-    const [patient, setPatient] = React.useState(function () {
-      return window.MedifiPatient ? window.MedifiPatient.load() : null;
-    });
+    const [booting, setBooting] = React.useState(true);
+    const [screen, setScreen] = React.useState("home");
+    const [patient, setPatient] = React.useState(null);
     const [letter, setLetter] = React.useState(null);
     const [processing, setProcessing] = React.useState(false);
     const [calOpen, setCalOpen] = React.useState(false);
@@ -179,13 +176,40 @@
     const [processingSub, setProcessingSub] = React.useState("");
     const [lettersVersion, setLettersVersion] = React.useState(0);
 
+    React.useEffect(function () {
+      if (!window.MedifiAuth || !window.MedifiAuth.firebaseReady()) {
+        setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
+        setScreen(window.MedifiPatient && window.MedifiPatient.isRegistered() ? "home" : "signup");
+        setBooting(false);
+        return;
+      }
+      window.MedifiAuth.bootstrap().then(function (data) {
+        if (data.user) {
+          setPatient(data.user);
+          setScreen("home");
+        } else {
+          setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
+          setScreen("signup");
+        }
+        setLettersVersion(function (v) { return v + 1; });
+        setBooting(false);
+      });
+    }, []);
+
     const allLetters = React.useMemo(function () {
       return window.MedifiLetterStore
         ? window.MedifiLetterStore.getAllLetters()
         : (window.MEDIFI_LETTERS || []);
     }, [lettersVersion]);
 
-    function saveToLibrary(l) {
+    async function saveToLibrary(l) {
+      if (window.MedifiAuth && window.MedifiAuth.getToken()) {
+        try {
+          await window.MedifiAuth.saveLetter(l);
+          setLettersVersion(function (v) { return v + 1; });
+          return;
+        } catch (_) { /* fall through to local */ }
+      }
       if (window.MedifiLetterStore && window.MedifiLetterStore.saveLetter(l)) {
         setLettersVersion(function (v) { return v + 1; });
       }
@@ -207,11 +231,13 @@
       updates: "Updates",
     };
 
-    function signOut() {
-      if (window.MedifiPatient) window.MedifiPatient.clear();
+    async function signOut() {
+      if (window.MedifiAuth) await window.MedifiAuth.logout();
+      else if (window.MedifiPatient) window.MedifiPatient.clear();
       setPatient(window.MedifiPatient ? window.MedifiPatient.defaultProfile() : null);
+      setLettersVersion(function (v) { return v + 1; });
       setScreen("signup");
-      flash("Signed out. Your letters stay on this device.");
+      flash("Signed out.");
     }
 
     function onSignupComplete(profile) {
@@ -290,7 +316,7 @@
     function flash(msg) { setToast(msg); window.clearTimeout(flash._t); flash._t = window.setTimeout(() => setToast(""), 2800); }
     function calDone(msg) { setCalOpen(false); flash(msg); }
 
-    const showMobileNav = !processing && MAIN_SCREENS.includes(screen);
+    const showMobileNav = !booting && !processing && MAIN_SCREENS.includes(screen);
 
     return (
       <div className="mf-app">
@@ -306,11 +332,19 @@
           avatarInitial={avatarInitial}
         />
         <main className="mf-body">
-          {processing ? <Processing message={processingMsg} sub={processingSub} /> : (
+          {booting ? (
+            <div className="mf-processing">
+              <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
+              <p className="mf-processing__t">Loading your account…</p>
+            </div>
+          ) : processing ? <Processing message={processingMsg} sub={processingSub} /> : (
             <React.Fragment>
               {screen === "signup" && (
                 <window.SignUpScreen
-                  isEdit={Boolean(patient && patient.registeredAt)}
+                  isEdit={Boolean(
+                    patient && patient.registeredAt
+                    && window.MedifiAuth && window.MedifiAuth.getToken()
+                  )}
                   onComplete={onSignupComplete}
                 />
               )}

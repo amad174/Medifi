@@ -435,6 +435,11 @@ body {
   max-width: 640px;
   margin: 0 auto;
 }
+.mf-signup-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
 .mf-signup-hero {
   margin-bottom: 8px;
 }
