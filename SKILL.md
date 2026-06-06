@@ -18,7 +18,7 @@ Key files:
 - `components/` — React primitives (Button, Badge, Card, Input, Eyebrow,
   RiskFlag, ChecklistItem, FieldRow). Each has a `.prompt.md` with usage.
 - `ui_kits/app/` — a full interactive recreation of the Medifi patient app.
-- `assets/` — logo / mark SVGs.
+- `assets/` — logo / mark assets.
 
 If creating visual artifacts (slides, mocks, throwaway prototypes, etc), copy
 assets out and create static HTML files for the user to view. If working on
