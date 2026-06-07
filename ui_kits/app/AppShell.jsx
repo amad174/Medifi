@@ -286,30 +286,44 @@
         finishBoot(localUser, isAuthenticated());
         return;
       }
+      function completeGoogleWelcome(data) {
+        if (data.fromGoogle) {
+          flash("Welcome, " + (window.MedifiPatient
+            ? window.MedifiPatient.firstName(data.user.name)
+            : "there") + "!");
+        }
+        if (data.gmailConnected) {
+          flash("Gmail connected — checking for NHS letters.");
+        }
+      }
+
+      function finishFromSession(profile, opts) {
+        if (!profile) return false;
+        finishBoot(profile, true);
+        if (opts && opts.fromGoogle) {
+          flash("Welcome, " + (window.MedifiPatient
+            ? window.MedifiPatient.firstName(profile.name)
+            : "there") + "!");
+        }
+        return true;
+      }
+
       window.MedifiAuth.bootstrap().then(function (data) {
         if (data.error) flash(data.error, "error");
         if (data.user) {
           finishBoot(data.user, true);
-          if (data.fromGoogle) {
-            flash("Welcome, " + (window.MedifiPatient
-              ? window.MedifiPatient.firstName(data.user.name)
-              : "there") + "!");
-          }
-          if (data.gmailConnected) {
-            flash("Gmail connected — checking for NHS letters.");
-          }
-        } else {
-          var loggedIn = isAuthenticated();
-          if (!loggedIn && window.MedifiAuth && window.MedifiAuth.getUser && window.MedifiAuth.getUser()) {
-            loggedIn = true;
-          }
-          finishBoot(
-            (loggedIn && window.MedifiAuth && window.MedifiAuth.getUser)
-              ? window.MedifiAuth.getUser()
-              : (window.MedifiPatient ? window.MedifiPatient.load() : null),
-            loggedIn
-          );
+          completeGoogleWelcome(data);
+          return;
         }
+        if (window.MedifiAuth.getToken && window.MedifiAuth.getToken()
+          && window.MedifiAuth.hydrateFromFirebaseSession) {
+          window.MedifiAuth.hydrateFromFirebaseSession().then(function (profile) {
+            if (finishFromSession(profile, { fromGoogle: data.fromGoogle })) return;
+            finishBoot(window.MedifiPatient ? window.MedifiPatient.load() : null, false);
+          });
+          return;
+        }
+        finishBoot(window.MedifiPatient ? window.MedifiPatient.load() : null, false);
       });
     }, []);
 
@@ -320,23 +334,22 @@
       var settled = false;
       var unsub = auth.onAuthStateChanged(function (firebaseUser) {
         if (!firebaseUser || settled || authed) return;
-        if (window.MedifiAuth.getToken && window.MedifiAuth.getToken()) return;
+        if (window.MedifiAuth.getUser && window.MedifiAuth.getUser()) return;
         settled = true;
-        window.MedifiAuth.bootstrap().then(function (data) {
-          if (data.user) {
-            setPatient(data.user);
-            setAuthed(true);
-            setScreen("home");
-            setLettersVersion(function (v) { return v + 1; });
-            runEmailSync();
-            if (data.fromGoogle) {
-              flash("Welcome, " + (window.MedifiPatient
-                ? window.MedifiPatient.firstName(data.user.name)
-                : "there") + "!");
-            }
-          } else if (data.error) {
-            flash(data.error, "error");
-          }
+        var hydrate = window.MedifiAuth.hydrateFromFirebaseSession
+          ? window.MedifiAuth.hydrateFromFirebaseSession()
+          : window.MedifiAuth.bootstrap().then(function (data) { return data.user; });
+        Promise.resolve(hydrate).then(function (profile) {
+          if (!profile) return;
+          setPatient(profile);
+          setAuthed(true);
+          setScreen("home");
+          setBooting(false);
+          setLettersVersion(function (v) { return v + 1; });
+          runEmailSync();
+          flash("Welcome, " + (window.MedifiPatient
+            ? window.MedifiPatient.firstName(profile.name)
+            : "there") + "!");
         });
       });
       return function () { unsub(); };

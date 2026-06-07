@@ -29,17 +29,9 @@
     }
   }
 
-  function hasStoredGooglePending() {
-    try {
-      return localStorage.getItem("medifi_google_auth_pending") === "1";
-    } catch (_) {
-      return false;
-    }
-  }
-
   // Must run before any other auth calls (Firebase redirect sign-in requirement).
   var redirectResultPromise = auth.getRedirectResult();
-  var authReturnWaitMs = sawAuthReturn() || hasStoredGooglePending() ? 15000 : 800;
+  var authReturnWaitMs = sawAuthReturn() ? 8000 : 400;
   var firstAuthUserPromise = new Promise(function (resolve) {
     if (auth.currentUser) {
       resolve(auth.currentUser);

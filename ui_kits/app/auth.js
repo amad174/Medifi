@@ -277,8 +277,18 @@
     }
   }
 
+  function clearStaleOAuthPending() {
+    if (hasAuthCallbackParams()) return;
+    var f = fb();
+    if (f && f.auth.currentUser) return;
+    if (isGoogleAuthPending()) clearGoogleAuthPending();
+  }
+
   function isExpectingOAuthReturn() {
-    return hasAuthCallbackParams() || isGoogleAuthPending();
+    if (hasAuthCallbackParams()) return true;
+    if (!isGoogleAuthPending()) return false;
+    var f = fb();
+    return Boolean(f && f.auth.currentUser);
   }
 
   function cleanAuthParamsFromUrl() {
@@ -312,12 +322,11 @@
   async function waitForRedirectSession() {
     var f = fb();
     if (f.auth.currentUser) return f.auth.currentUser;
-    var timeout = isMobileAuth() ? 15000 : 12000;
     if (f.firstAuthUserPromise) {
       var early = await f.firstAuthUserPromise;
       if (early) return early;
     }
-    return waitForAuthUser(timeout);
+    return waitForAuthUser(isMobileAuth() ? 6000 : 4000);
   }
 
   function getToken() {
@@ -331,6 +340,35 @@
 
   function getUser() {
     return cachedUser;
+  }
+
+  function profileFromFirebaseUser(firebaseUser) {
+    return {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || (firebaseUser.email || "").split("@")[0] || "",
+      email: (firebaseUser.email || "").trim().toLowerCase(),
+      age: "",
+      ethnicity: "",
+      activity: "",
+      smoking: "",
+      alcohol: "",
+      diet: "",
+      sleep: "",
+      caring: "",
+      registeredAt: new Date().toISOString(),
+    };
+  }
+
+  async function syncUserFromFirestore(firebaseUser) {
+    await ensureUserProfile(firebaseUser);
+    setActiveScope({ id: firebaseUser.uid });
+    await migrateGuestLettersToCloud(firebaseUser.uid);
+    var data = await loadUserData(firebaseUser.uid);
+    if (data.profile) {
+      hydrate(data.profile, data.letters, data.health);
+      return data.profile;
+    }
+    return profileFromFirebaseUser(firebaseUser);
   }
 
   async function ensureUserProfile(firebaseUser) {
@@ -369,13 +407,25 @@
 
   async function finishGoogleSignIn(firebaseUser) {
     if (!firebaseUser) throw new Error("Google sign-in did not complete.");
-    await ensureUserProfile(firebaseUser);
+    var quickProfile = profileFromFirebaseUser(firebaseUser);
     setActiveScope({ id: firebaseUser.uid });
-    await migrateGuestLettersToCloud(firebaseUser.uid);
-    var data = await loadUserData(firebaseUser.uid);
-    if (!data.profile) throw new Error("Could not load your profile. Please try again.");
-    hydrate(data.profile, data.letters, data.health);
-    return data.profile;
+    hydrate(quickProfile, [], null);
+    clearGoogleAuthPending();
+    cleanAuthParamsFromUrl();
+    try {
+      return await syncUserFromFirestore(firebaseUser);
+    } catch (err) {
+      console.warn("profile sync:", err);
+      return quickProfile;
+    }
+  }
+
+  async function hydrateFromFirebaseSession() {
+    if (!firebaseReady()) return null;
+    var user = fb().auth.currentUser;
+    if (!user) return null;
+    if (cachedUser && cachedUser.id === user.uid) return cachedUser;
+    return finishGoogleSignIn(user);
   }
 
   var googleRedirectPromise = null;
@@ -443,17 +493,16 @@
       }
 
       var gmailStillPending = isGmailConnectPending();
-      var expectingReturn = pending || isExpectingOAuthReturn();
+      var expectingReturn = pending || hasAuthCallbackParams();
 
       if (expectingReturn && !gmailStillPending) {
         var restored = await waitForRedirectSession();
+        clearGoogleAuthPending();
+        cleanAuthParamsFromUrl();
         if (restored) {
-          setGoogleAuthPending(false);
-          cleanAuthParamsFromUrl();
           var profile = await finishGoogleSignIn(restored);
           return { type: "auth", profile: profile };
         }
-        setGoogleAuthPending(false);
       }
 
       return null;
@@ -561,7 +610,8 @@
       hydrateEmailInbox(null);
       return { user: null };
     }
-    var expectingGoogleReturn = isExpectingOAuthReturn();
+    clearStaleOAuthPending();
+    var expectingGoogleReturn = hasAuthCallbackParams() || isGoogleAuthPending();
     try {
       var redirectOutcome = await completeGoogleRedirect();
       if (redirectOutcome && redirectOutcome.profile) {
@@ -572,39 +622,46 @@
         };
       }
     } catch (err) {
+      clearGoogleAuthPending();
       return { user: null, error: err.message };
     }
-    var authWait = expectingGoogleReturn ? (isMobileAuth() ? 15000 : 12000) : 4000;
+    if (fb().auth.currentUser) {
+      try {
+        var sessionProfile = await hydrateFromFirebaseSession();
+        if (sessionProfile) {
+          return {
+            user: sessionProfile,
+            fromGoogle: expectingGoogleReturn && fb().auth.currentUser.providerData
+              && fb().auth.currentUser.providerData.some(function (p) {
+                return p && p.providerId === "google.com";
+              }),
+          };
+        }
+      } catch (err) {
+        console.error("session hydrate:", err);
+      }
+    }
+    var authWait = hasAuthCallbackParams() ? (isMobileAuth() ? 8000 : 6000) : 3000;
     var user = await waitForAuthUser(authWait);
     if (!user) {
+      clearGoogleAuthPending();
       cachedUser = null;
       setActiveScope(null);
       return { user: null };
     }
     try {
-      await ensureUserProfile(user);
-      setActiveScope({ id: user.uid });
-      await migrateGuestLettersToCloud(user.uid);
-      var data = await loadUserData(user.uid);
-      if (!data.profile) {
-        await fb().auth.signOut();
-        cachedUser = null;
-        setActiveScope(null);
-        return { user: null, error: "Could not load your profile. Please try again." };
-      }
-      hydrate(data.profile, data.letters, data.health);
+      var profile = await syncUserFromFirestore(user);
       return {
-        user: data.profile,
-        letters: data.letters,
-        health: data.health,
+        user: profile,
         fromGoogle: expectingGoogleReturn && user.providerData && user.providerData.some(function (p) {
           return p && p.providerId === "google.com";
         }),
       };
     } catch (err) {
       console.error("bootstrap:", err);
-      cachedUser = null;
-      return { user: null, error: mapFirebaseError(err) };
+      var fallback = profileFromFirebaseUser(user);
+      hydrate(fallback, [], null);
+      return { user: fallback, error: mapFirebaseError(err) };
     }
   }
 
@@ -756,6 +813,7 @@
     isLoggedIn: isLoggedIn,
     getUser: getUser,
     bootstrap: bootstrap,
+    hydrateFromFirebaseSession: hydrateFromFirebaseSession,
     signup: signup,
     login: login,
     loginWithGoogle: loginWithGoogle,
