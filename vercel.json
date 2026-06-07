@@ -10,19 +10,13 @@
         "includeFiles": ["server/**"]
       }
     },
+    { "src": "index.html", "use": "@vercel/static" },
     { "src": "ui_kits/**", "use": "@vercel/static" },
     { "src": "assets/**", "use": "@vercel/static" },
     { "src": "styles.css", "use": "@vercel/static" },
     { "src": "tokens/**", "use": "@vercel/static" },
     { "src": "_ds_bundle.js", "use": "@vercel/static" },
     { "src": "_ds_fallback.js", "use": "@vercel/static" }
-  ],
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/ui_kits/app/index.html",
-      "permanent": false
-    }
   ],
   "routes": [
     { "handle": "filesystem" },
