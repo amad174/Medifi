@@ -127,6 +127,17 @@
         && profile.activity && profile.diet;
     }
 
+    function missingFieldLabels() {
+      var missing = [];
+      if (!profile.age) missing.push("age");
+      if (!profile.ethnicity) missing.push("ethnicity");
+      if (!profile.heightCm) missing.push("height");
+      if (!profile.weightKg) missing.push("weight");
+      if (!profile.activity) missing.push("activity level");
+      if (!profile.diet) missing.push("diet");
+      return missing;
+    }
+
     function submit() {
       if (!canSubmit()) return;
       setComputing(true);
@@ -295,6 +306,12 @@
             </p>
           )}
         </div>
+
+        {!canSubmit() && missingFieldLabels().length > 0 && (
+          <p className="mf-field__hint mf-field__hint--block">
+            Please complete: {missingFieldLabels().join(", ")}.
+          </p>
+        )}
 
         <Button
           variant="primary"

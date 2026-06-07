@@ -4,10 +4,11 @@
   const { Badge, Eyebrow } = window.MedifiDesignSystem_063852;
   const Icon = window.Icon;
 
-  const LEVEL_TONE = { safe: "safe", caution: "caution", risk: "risk" };
-  const LEVEL_TEXT = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
+  const Utils = window.MedifiLetterUtils;
 
   function LetterRow({ letter, onOpen }) {
+    const tone = Utils ? Utils.levelTone(letter.worstLevel) : "neutral";
+    const text = Utils ? Utils.levelText(letter.worstLevel) : "Letter";
     return (
       <button type="button" className="mf-letter" onClick={() => onOpen(letter)}>
         <span className="mf-letter__icon"><Icon name="file" size={22} /></span>
@@ -17,7 +18,7 @@
           <span className="mf-letter__received">{letter.received}</span>
         </span>
         <span className="mf-letter__end">
-          <Badge tone={LEVEL_TONE[letter.worstLevel]} dot>{LEVEL_TEXT[letter.worstLevel]}</Badge>
+          <Badge tone={tone} dot>{text}</Badge>
           <Icon name="chevronRight" size={20} className="mf-letter__chev" />
         </span>
       </button>
@@ -30,20 +31,17 @@
     const firstName = patient && patient.name
       ? (window.MedifiPatient ? window.MedifiPatient.firstName(patient.name) : patient.name.split(" ")[0])
       : "there";
-    const assets = window.MEDIFI_ASSETS || {};
+    const todayLabel = new Date().toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
 
     return (
       <div className="mf-screen mf-screen--home">
         <div className="mf-greet">
-          {assets.brand && (
-            <img
-              src={assets.brand}
-              alt="Medifi — always putting patients first"
-              className="mf-brand-lockup mf-brand-lockup--greet"
-            />
-          )}
           <div className="mf-greet__content">
-            <Eyebrow tone="accent">Tuesday 6 June</Eyebrow>
+            <Eyebrow tone="accent">{todayLabel}</Eyebrow>
             <h1 className="mf-greet__h">Hi {firstName}</h1>
             <p className="mf-greet__sub">Photograph or paste an NHS letter and Medifi will turn it into a clear plan.</p>
           </div>
@@ -64,6 +62,11 @@
             <button type="button" className="mf-seeall" onClick={onSeeAll}>See all</button>
           </p>
           <div className="mf-list mf-list--letters">
+            {recent.length === 0 && (
+              <p className="mf-disclaimer" style={{ textAlign: "left" }}>
+                No letters yet. Tap <strong>Scan a letter</strong> above to add your first one.
+              </p>
+            )}
             {recent.map((l) => (
               <LetterRow key={l.id} letter={l} onOpen={onOpen} />
             ))}

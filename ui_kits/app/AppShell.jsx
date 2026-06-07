@@ -6,14 +6,50 @@
   const Cal = window.MedifiCal;
 
   const MAIN_SCREENS = ["home", "letters", "help", "account"];
+  const PROTECTED_SCREENS = ["home", "scan", "result", "letters", "account", "health"];
+  const PUBLIC_SCREENS = ["landing", "signup", "help"];
 
-  const LOGO_SRC = "../../assets/medifi-logo.png";
+  const LOGO_SRC = (window.MEDIFI_ASSETS && window.MEDIFI_ASSETS.logo) || "../../assets/medifi-logo.png";
 
-  function Logo({ onClick }) {
+  function isAuthenticated() {
+    if (window.MedifiAuth && window.MedifiAuth.getToken && window.MedifiAuth.getToken()) return true;
+    if (window.MedifiPatient && window.MedifiPatient.isRegistered && window.MedifiPatient.isRegistered()) {
+      return true;
+    }
+    return false;
+  }
+
+  function Logo({ onClick, large }) {
     return (
-      <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
+      <button
+        type="button"
+        className={"mf-header__logo" + (large ? " mf-header__logo--lg" : "")}
+        onClick={onClick}
+        aria-label="Medifi home"
+      >
         <img src={LOGO_SRC} alt="Medifi" className="mf-header__logo-img" />
       </button>
+    );
+  }
+
+  function PublicHeader({ onLogo, onLogin, onSignUp, onHelp }) {
+    return (
+      <header className="mf-header mf-header--public">
+        <div className="mf-header__inner">
+          <Logo onClick={onLogo} large />
+          <nav className="mf-header__public-nav" aria-label="Account">
+            <button type="button" className="mf-header__textbtn" onClick={onHelp}>
+              Help
+            </button>
+            <button type="button" className="mf-header__textbtn" onClick={onLogin}>
+              Log in
+            </button>
+            <button type="button" className="mf-header__cta" onClick={onSignUp}>
+              Sign up
+            </button>
+          </nav>
+        </div>
+      </header>
     );
   }
 
@@ -32,6 +68,7 @@
             type="button"
             className={"mf-header__nav-item" + (screen === it.id ? " mf-header__nav-item--on" : "")}
             onClick={() => onNav(it.id)}
+            aria-current={screen === it.id ? "page" : undefined}
           >
             {it.label}
           </button>
@@ -40,7 +77,7 @@
     );
   }
 
-  function Header({ screen, title, onHome, onBack, onNav, onAccount, onUpdates, unread, avatarInitial, wideLayout }) {
+  function Header({ screen, title, onHome, onBack, onNav, onAccount, avatarInitial, wideLayout }) {
     const isSub = !MAIN_SCREENS.includes(screen);
     return (
       <header className={"mf-header" + (isSub ? " mf-header--sub" : "") + (wideLayout ? " mf-header--wide" : "")}>
@@ -55,10 +92,6 @@
           {isSub && <span className="mf-header__title">{title}</span>}
 
           <div className="mf-header__right">
-            <button type="button" className="mf-iconbtn mf-iconbtn--badge" aria-label="Updates from your care team" onClick={onUpdates}>
-              <Icon name="bell" size={22} />
-              {unread > 0 && <span className="mf-bell-badge">{unread}</span>}
-            </button>
             <button type="button" className="mf-avatar" aria-label="Your account" onClick={onAccount}>{avatarInitial || "M"}</button>
           </div>
         </div>
@@ -78,14 +111,14 @@
         <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
         <p className="mf-processing__t">{message || "Reading your letter…"}</p>
         <p className="mf-processing__s">{sub || "Finding the date, place, and what to do next."}</p>
-        <p className="mf-processing__s">Usually 10–45 seconds with Claude · {secs}s</p>
+        <p className="mf-processing__s">Usually 10–45 seconds · {secs}s</p>
       </div>
     );
   }
 
   function BottomNav({ screen, onNav }) {
     const item = (id, name, label) => (
-      <button type="button" className={"mf-nav__item" + (screen === id ? " mf-nav__item--on" : "")} onClick={() => onNav(id)}>
+      <button type="button" className={"mf-nav__item" + (screen === id ? " mf-nav__item--on" : "")} onClick={() => onNav(id)} aria-current={screen === id ? "page" : undefined}>
         <Icon name={name} size={24} /><span>{label}</span>
       </button>
     );
@@ -116,16 +149,23 @@
 
   function CalendarSheet({ letter, onClose, onDone }) {
     const ev = eventFromLetter(letter);
-    const hasMeds = letter && letter.medicines;
+    const hasMeds = letter && letter.medicines && letter.medicines.length;
+    const hasContent = ev || hasMeds;
+    if (window.MedifiSheetA11y) window.MedifiSheetA11y.useEscape(onClose);
     function google() { window.open(Cal.googleUrl(ev), "_blank", "noopener"); onDone("Opening Google Calendar…"); }
     function apple() { Cal.downloadIcs([ev], "medifi-appointment"); onDone("Calendar file downloaded."); }
     function meds() { Cal.downloadIcs(Cal.medicineEvents(letter.medicines, new Date()), "medifi-medicine-reminders"); onDone("Medicine reminders downloaded."); }
     return (
       <div className="mf-sheet-scrim" onClick={onClose} role="presentation">
-        <div className="mf-sheet" role="dialog" aria-labelledby="cal-sheet-title" onClick={(e) => e.stopPropagation()}>
+        <div className="mf-sheet" role="dialog" aria-modal="true" aria-labelledby="cal-sheet-title" onClick={(e) => e.stopPropagation()}>
           <div className="mf-sheet__grip" aria-hidden="true"></div>
           <h3 className="mf-sheet__title" id="cal-sheet-title">Add to your calendar</h3>
           <p className="mf-sheet__sub">Reminders will pop up on your device — no need to remember.</p>
+          {!hasContent && (
+            <p className="mf-disclaimer" style={{ textAlign: "left", marginBottom: 12 }}>
+              There is no appointment date or medicine schedule in this message.
+            </p>
+          )}
           {ev && (
             <React.Fragment>
               <button type="button" className="mf-sheet__opt" onClick={google}>
@@ -153,22 +193,45 @@
     );
   }
 
-  function Toast({ children }) {
-    return <div className="mf-toast" role="status"><Icon name="check" size={18} /><span>{children}</span></div>;
+  function Toast({ children, tone }) {
+    var isError = tone === "error";
+    return (
+      <div className={"mf-toast" + (isError ? " mf-toast--error" : "")} role={isError ? "alert" : "status"}>
+        <Icon name={isError ? "alert" : "check"} size={18} />
+        <span>{children}</span>
+      </div>
+    );
+  }
+
+  function SiteFooter() {
+    const brand = window.MEDIFI_ASSETS && window.MEDIFI_ASSETS.brand;
+    if (!brand) return null;
+    return (
+      <footer className="mf-site-footer">
+        <div className="mf-site-footer__inner">
+          <img
+            src={brand}
+            alt="Medifi — always putting patients first"
+            className="mf-site-footer__brand"
+          />
+          <p className="mf-site-footer__note">Independent patient tool — not an official NHS service</p>
+        </div>
+      </footer>
+    );
   }
 
   function AppShell() {
     const [booting, setBooting] = React.useState(true);
-    const [screen, setScreen] = React.useState("home");
+    const [screen, setScreen] = React.useState("landing");
+    const [signupMode, setSignupMode] = React.useState("signup");
+    const [authed, setAuthed] = React.useState(false);
     const [patient, setPatient] = React.useState(null);
     const [letter, setLetter] = React.useState(null);
     const [processing, setProcessing] = React.useState(false);
     const [calOpen, setCalOpen] = React.useState(false);
     const [calItem, setCalItem] = React.useState(null);
     const [routeOpen, setRouteOpen] = React.useState(false);
-    const [readIds, setReadIds] = React.useState(
-      () => new Set((window.MEDIFI_UPDATES || []).filter((u) => !u.unread).map((u) => u.id)));
-    const [toast, setToast] = React.useState("");
+    const [toast, setToast] = React.useState(null);
     const [processingMsg, setProcessingMsg] = React.useState("");
     const [processingSub, setProcessingSub] = React.useState("");
     const [lettersVersion, setLettersVersion] = React.useState(0);
@@ -201,32 +264,55 @@
     }
 
     React.useEffect(function () {
-      if (!window.MedifiAuth || !window.MedifiAuth.firebaseReady()) {
-        setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
-        setScreen(window.MedifiPatient && window.MedifiPatient.isRegistered() ? "home" : "signup");
+      if (window.MedifiPrefs) window.MedifiPrefs.applyBigText();
+    }, []);
+
+    React.useEffect(function () {
+      function finishBoot(user, loggedIn) {
+        setAuthed(loggedIn);
+        setPatient(user || (window.MedifiPatient ? window.MedifiPatient.load() : null));
+        setScreen(loggedIn ? "home" : "landing");
+        setLettersVersion(function (v) { return v + 1; });
         setBooting(false);
-        runEmailSync();
+        if (window.MedifiPrefs) window.MedifiPrefs.applyBigText();
+        if (loggedIn) runEmailSync();
+      }
+
+      if (!window.MedifiAuth || !window.MedifiAuth.firebaseReady()) {
+        var localUser = window.MedifiPatient ? window.MedifiPatient.load() : null;
+        finishBoot(localUser, isAuthenticated());
         return;
       }
       window.MedifiAuth.bootstrap().then(function (data) {
-        if (data.error) flash(data.error);
+        if (data.error) flash(data.error, "error");
         if (data.user) {
-          setPatient(data.user);
-          setScreen("home");
+          finishBoot(data.user, true);
+          if (data.fromGoogle) {
+            flash("Welcome, " + (window.MedifiPatient
+              ? window.MedifiPatient.firstName(data.user.name)
+              : "there") + "!");
+          }
+          if (data.gmailConnected) {
+            flash("Gmail connected — checking for NHS letters.");
+          }
         } else {
-          setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
-          setScreen("signup");
+          finishBoot(window.MedifiPatient ? window.MedifiPatient.load() : null, isAuthenticated());
         }
-        setLettersVersion(function (v) { return v + 1; });
-        setBooting(false);
-        runEmailSync();
       });
     }, []);
 
     React.useEffect(function () {
+      if (!authed) return;
       const id = window.setInterval(runEmailSync, 5000);
       return function () { window.clearInterval(id); };
-    }, []);
+    }, [authed]);
+
+    React.useEffect(function () {
+      if (booting) return;
+      if (!authed && PROTECTED_SCREENS.indexOf(screen) >= 0) {
+        setScreen("landing");
+      }
+    }, [authed, screen, booting]);
 
     const allLetters = React.useMemo(function () {
       return window.MedifiLetterStore
@@ -247,10 +333,6 @@
       }
     }
 
-    const markRead = React.useCallback((id) => {
-      setReadIds((prev) => { if (prev.has(id)) return prev; const n = new Set(prev); n.add(id); return n; });
-    }, []);
-    const unread = (window.MEDIFI_UPDATES || []).filter((u) => !readIds.has(u.id)).length;
     const titles = {
       scan: "Scan a letter",
       result: letter ? letter.sender : "",
@@ -258,36 +340,91 @@
       help: "Help & support",
       account: "Account",
       health: "Health profile",
-      signup: "Create account",
-      updates: "Updates",
+      signup: signupMode === "login" ? "Log in" : "Create account",
+      landing: "Medifi",
     };
+
+    function goLogin() {
+      setSignupMode("login");
+      setScreen("signup");
+    }
+
+    function goSignup() {
+      setSignupMode("signup");
+      setScreen("signup");
+    }
+
+    function goLanding() {
+      setScreen("landing");
+    }
+
+    function navigate(next) {
+      if (PROTECTED_SCREENS.indexOf(next) >= 0 && !isAuthenticated()) {
+        flash("Please log in to access this part of Medifi.", "error");
+        goLogin();
+        return;
+      }
+      setScreen(next);
+    }
 
     async function signOut() {
       if (window.MedifiAuth) await window.MedifiAuth.logout();
       else if (window.MedifiPatient) window.MedifiPatient.clear();
       setPatient(window.MedifiPatient ? window.MedifiPatient.defaultProfile() : null);
+      setAuthed(false);
       setLettersVersion(function (v) { return v + 1; });
-      setScreen("signup");
+      setScreen("landing");
+      if (window.MedifiPrefs) window.MedifiPrefs.applyBigText();
       flash("Signed out.");
     }
 
-    function onSignupComplete(profile) {
-      const wasRegistered = patient && patient.registeredAt;
+    function onAuthSuccess(profile, opts) {
+      var wasRegistered = patient && patient.registeredAt;
+      var fromGoogle = opts && opts.google;
       setPatient(profile);
-      setScreen(wasRegistered ? "account" : "home");
+      setAuthed(true);
+      setLettersVersion(function (v) { return v + 1; });
+      setScreen(wasRegistered && !fromGoogle ? "account" : "home");
+      runEmailSync();
+      if (window.MedifiPrefs) window.MedifiPrefs.applyBigText();
       flash(
-        wasRegistered
+        wasRegistered && !fromGoogle
           ? "Profile updated."
           : "Welcome, " + (window.MedifiPatient ? window.MedifiPatient.firstName(profile.name) : "there") + "!"
       );
+    }
+
+    function onSignupComplete(profile) {
+      onAuthSuccess(profile, {});
     }
 
     const avatarInitial = patient && window.MedifiPatient
       ? window.MedifiPatient.initial(patient.name)
       : "M";
 
-    function openCal(it) { setCalItem(it); setCalOpen(true); }
-    function openRoutes() { setRouteOpen(true); }
+    function openCal(it) {
+      var p = window.MedifiPrefs ? window.MedifiPrefs.load() : null;
+      if (p && !p.calendar) {
+        flash("Calendar sync is turned off in Account settings.", "error");
+        return;
+      }
+      var hasCal = window.MedifiLetterUtils
+        ? window.MedifiLetterUtils.hasCalendarContent(it)
+        : (it && (it.event || (it.medicines && it.medicines.length)));
+      if (!hasCal) {
+        flash("Nothing to add to your calendar in this message.", "error");
+        return;
+      }
+      setCalItem(it);
+      setCalOpen(true);
+    }
+    function openRoutes() {
+      if (!letter || !window.MedifiRoutes || !window.MedifiRoutes.venueForLetter(letter)) {
+        flash("We couldn't find an address in this letter to plan a route.", "error");
+        return;
+      }
+      setRouteOpen(true);
+    }
 
     async function analyze(input, instant) {
       const Matcher = window.MedifiLetterMatcher;
@@ -312,9 +449,9 @@
           setScreen("result");
         } catch (err) {
           const msg = err.name === "AbortError"
-            ? "This is taking too long. Check your API key in .env and try a shorter letter, or paste the text instead."
+            ? "This is taking too long. Try a shorter letter or paste the text instead."
             : (err.message || "Could not analyse this letter.");
-          flash(msg);
+          flash(msg, "error");
         } finally {
           setProcessing(false);
           setProcessingMsg("");
@@ -336,35 +473,54 @@
         setScreen("result");
       }, l && l.fromLLM ? 800 : 1500);
     }
-    function open(l) { setLetter(l); setScreen("result"); }
-    function goHome() { setScreen("home"); }
+    function open(l) { setLetter(l); navigate("result"); }
+    function goHome() {
+      if (isAuthenticated()) setScreen("home");
+      else setScreen("landing");
+    }
     function goBack() {
-      if (screen === "health" || screen === "signup") setScreen(patient && patient.registeredAt ? "account" : "home");
+      if (screen === "signup" && !isAuthenticated()) goLanding();
+      else if (screen === "health" || screen === "signup") setScreen(patient && patient.registeredAt ? "account" : "home");
       else if (screen === "result" || screen === "scan") goHome();
-      else if (screen === "updates") goHome();
       else goHome();
     }
-    function flash(msg) { setToast(msg); window.clearTimeout(flash._t); flash._t = window.setTimeout(() => setToast(""), 2800); }
+    function flash(msg, tone) {
+      setToast({ msg: msg, tone: tone || "success" });
+      window.clearTimeout(flash._t);
+      flash._t = window.setTimeout(function () { setToast(null); }, 3200);
+    }
     function calDone(msg) { setCalOpen(false); flash(msg); }
 
-    const showMobileNav = !booting && !processing && MAIN_SCREENS.includes(screen);
-    const showChat = !booting && !processing && screen !== "signup";
+    const showPublicChrome = !booting && !processing && PUBLIC_SCREENS.indexOf(screen) >= 0 && !authed;
+    const showAppHeader = !booting && !processing && !showPublicChrome;
+    const showMobileNav = showAppHeader && authed && MAIN_SCREENS.includes(screen);
+    const showChat = showAppHeader && authed && screen !== "signup";
     const sidebarChat = showChat && wideScreen;
+    const showFooter = !booting && !processing;
+    const showActionbar = authed && !processing && screen === "result";
 
     return (
-      <div className={"mf-app" + (sidebarChat ? " mf-app--sidebar" : "")}>
-        <Header
-          screen={screen}
-          title={titles[screen]}
-          onHome={goHome}
-          onBack={goBack}
-          onNav={setScreen}
-          onAccount={() => setScreen("account")}
-          onUpdates={() => setScreen("updates")}
-          unread={unread}
-          avatarInitial={avatarInitial}
-          wideLayout={sidebarChat}
-        />
+      <div className={"mf-app" + (sidebarChat ? " mf-app--sidebar" : "") + (showPublicChrome ? " mf-app--public" : "")}>
+        {showPublicChrome && (
+          <PublicHeader
+            onLogo={goLanding}
+            onLogin={goLogin}
+            onSignUp={goSignup}
+            onHelp={() => setScreen("help")}
+          />
+        )}
+        {showAppHeader && (
+          <Header
+            screen={screen}
+            title={titles[screen]}
+            onHome={goHome}
+            onBack={goBack}
+            onNav={navigate}
+            onAccount={() => navigate("account")}
+            avatarInitial={avatarInitial}
+            wideLayout={sidebarChat}
+          />
+        )}
         <div className="mf-shell">
           <div className="mf-main-column">
             <div className="mf-layout">
@@ -372,62 +528,88 @@
             {booting ? (
               <div className="mf-processing">
                 <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
-                <p className="mf-processing__t">Loading your account…</p>
+                <p className="mf-processing__t">Loading Medifi…</p>
               </div>
             ) : processing ? <Processing message={processingMsg} sub={processingSub} /> : (
               <React.Fragment>
+                {screen === "landing" && (
+                  <window.LandingScreen
+                    onSignUp={goSignup}
+                    onLogin={goLogin}
+                    onLearnMore={() => setScreen("help")}
+                  />
+                )}
                 {screen === "signup" && (
                   <window.SignUpScreen
                     isEdit={Boolean(
                       patient && patient.registeredAt
                       && window.MedifiAuth && window.MedifiAuth.getToken()
                     )}
+                    initialMode={signupMode}
+                    onCancel={!authed ? goLanding : null}
                     onComplete={onSignupComplete}
                   />
                 )}
-                {screen === "home" && (
+                {screen === "home" && authed && (
                   <window.HomeScreen
                     letters={allLetters}
                     patient={patient}
-                    onScan={() => setScreen("scan")}
+                    onScan={() => navigate("scan")}
                     onOpen={open}
-                    onSeeAll={() => setScreen("letters")}
+                    onSeeAll={() => navigate("letters")}
                   />
                 )}
-                {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
-                {screen === "result" && letter && (
+                {screen === "scan" && authed && <window.ScanScreen onAnalyze={analyze} />}
+                {screen === "result" && authed && letter && (
                   <window.ResultScreen
                     letter={letter}
                     onAddReminders={() => openCal(letter)}
                     onPlanRoute={openRoutes}
                   />
                 )}
-                {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
-                {screen === "help" && <window.HelpScreen />}
-                {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
-                {screen === "account" && (
+                {screen === "result" && authed && !letter && (
+                  <div className="mf-screen mf-screen--empty">
+                    <p className="mf-disclaimer" style={{ textAlign: "left" }}>
+                      This letter is no longer available. Go back to Home and open it again from Your letters.
+                    </p>
+                    <Button variant="primary" fullWidth onClick={goHome}>Back to home</Button>
+                  </div>
+                )}
+                {screen === "letters" && authed && <window.LettersScreen letters={allLetters} onOpen={open} />}
+                {screen === "help" && (
+                  <window.HelpScreen onBack={!authed ? goLanding : null} />
+                )}
+                {screen === "account" && authed && (
                   <window.AccountScreen
                     patient={patient}
-                    onOpenHealth={() => setScreen("health")}
+                    onOpenHealth={() => navigate("health")}
                     onEditProfile={() => setScreen("signup")}
-                    onGoSignup={() => setScreen("signup")}
+                    onGoSignup={goSignup}
                     onSignOut={signOut}
+                    onAuthSuccess={function (user) { onAuthSuccess(user, { google: true }); }}
                     onEmailConnected={() => setLettersVersion(function (v) { return v + 1; })}
                   />
                 )}
-                {screen === "health" && <window.HealthScreen onDone={() => setScreen("account")} />}
+                {screen === "health" && authed && (
+                  <window.HealthScreen onDone={() => navigate("account")} />
+                )}
               </React.Fragment>
             )}
               </main>
             </div>
-            {!processing && screen === "result" && (
-              <div className="mf-actionbar">
-                <Button variant="primary" size="lg" fullWidth iconLeft={<Icon name="calendar" size={20} />} onClick={() => openCal(letter)}>
-                  {letter && letter.medicines && !letter.event ? "Set medicine reminders" : "Add to my calendar"}
-                </Button>
+            {(showFooter || showActionbar) && (
+              <div className="mf-bottom-stack">
+                {showActionbar && (
+                  <div className="mf-actionbar">
+                    <Button variant="primary" size="lg" fullWidth iconLeft={<Icon name="calendar" size={20} />} onClick={() => openCal(letter)}>
+                      {letter && letter.medicines && !letter.event ? "Set medicine reminders" : "Add to my calendar"}
+                    </Button>
+                  </div>
+                )}
+                {showFooter && <SiteFooter />}
               </div>
             )}
-            {showMobileNav && <BottomNav screen={screen} onNav={setScreen} />}
+            {showMobileNav && <BottomNav screen={screen} onNav={navigate} />}
           </div>
           {sidebarChat && window.ChatPanel && (
             <window.ChatPanel
@@ -444,6 +626,7 @@
             currentLetter={letter}
             patient={patient}
             open={chatOpen}
+            hideFab={showActionbar}
             onToggle={() => setChatOpen(function (v) { return !v; })}
           />
         )}
@@ -451,7 +634,7 @@
         {routeOpen && letter && window.MedifiRoutes.venueForLetter(letter) && (
           <window.TransportSheet letter={letter} onClose={() => setRouteOpen(false)} />
         )}
-        {toast && <Toast>{toast}</Toast>}
+        {toast && <Toast tone={toast.tone}>{toast.msg}</Toast>}
       </div>
     );
   }

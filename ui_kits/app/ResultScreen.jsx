@@ -10,8 +10,10 @@
   const LEVEL_TONE = { safe: "safe", caution: "caution", risk: "risk" };
 
   const Routes = window.MedifiRoutes;
+  const LetterUtils = window.MedifiLetterUtils;
 
   function ResultScreen({ letter, onAddReminders, onPlanRoute }) {
+    const contactPhone = LetterUtils ? LetterUtils.phoneFromLetter(letter) : null;
     const [done, setDone] = React.useState({});
     const [showOriginal, setShowOriginal] = React.useState(false);
     const [lang, setLang] = React.useState("English");
@@ -35,18 +37,32 @@
     const toggle = (id) => setDone((d) => ({ ...d, [id]: !d[id] }));
 
     React.useEffect(function () {
+      if (!shareOpen) return;
+      function onKey(e) {
+        if (e.key === "Escape") setShareOpen(false);
+      }
+      document.addEventListener("keydown", onKey);
+      return function () { document.removeEventListener("keydown", onKey); };
+    }, [shareOpen]);
+
+    React.useEffect(function () {
       setLang("English");
       setXlate(null);
       setXlateError("");
       setSpeechError("");
       setSpeaking(false);
       setPreparingSpeech(false);
+      setDone(window.MedifiPrefs ? window.MedifiPrefs.loadChecklist(letter.id) : {});
       xlateCache.current = {};
       if (window.MedifiSpeech) {
         window.MedifiSpeech.stop();
         window.MedifiSpeech.clearCache();
       }
     }, [letter.id]);
+
+    React.useEffect(function () {
+      if (window.MedifiPrefs) window.MedifiPrefs.saveChecklist(letter.id, done);
+    }, [done, letter.id]);
 
     React.useEffect(function () {
       if (!window.MedifiSpeech || xlateLoading) return;
@@ -197,8 +213,11 @@
     const statusLabel = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
 
     function handleCheck(c) {
-      if (c.action === "routes" && onPlanRoute) onPlanRoute();
-      else toggle(c.id);
+      if (c.action === "routes") {
+        if (onPlanRoute) onPlanRoute();
+        return;
+      }
+      toggle(c.id);
     }
 
     const quickTools = (
@@ -316,7 +335,20 @@
             <div className="mf-result-risks">
               {view.risks.map((r, i) => (
                 <RiskFlag key={i} level={r.level} title={r.title}
-                  action={r.level === "risk" ? <Button variant="danger" size="sm" iconLeft={<Icon name="phone" size={16} />}>Call</Button> : null}>
+                  action={r.level === "risk" ? (
+                    contactPhone ? (
+                      <Button as="a" href={LetterUtils.telHref(contactPhone)} variant="danger" size="sm"
+                        iconLeft={<Icon name="phone" size={16} />}
+                        aria-label={"Call " + contactPhone}>
+                        Call
+                      </Button>
+                    ) : (
+                      <Button as="a" href="tel:111" variant="danger" size="sm"
+                        iconLeft={<Icon name="phone" size={16} />} aria-label="Call NHS 111">
+                        Call 111
+                      </Button>
+                    )
+                  ) : null}>
                   <span className={isRtl ? "mf-rtl" : ""}>{r.text}</span>
                 </RiskFlag>
               ))}
@@ -328,6 +360,7 @@
             <div className="mf-ask">
               <div className="mf-ask__row">
                 <Input placeholder="e.g. What do I need to bring?"
+                  aria-label="Your question about this letter"
                   value={q} onChange={(e) => setQ(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) handleAsk(); }} />
                 <Button variant="secondary" iconLeft={<Icon name="arrowRight" size={18} />}
@@ -365,7 +398,7 @@
               <Icon name="file" size={16} />
               {showOriginal ? "Hide original letter" : "Show original letter"}
             </button>
-            {showOriginal && <pre className="mf-original">{letter.original}</pre>}
+            {showOriginal && <pre className="mf-original mf-original--scroll">{letter.original}</pre>}
           </section>
 
           {venue && Routes && Routes.hasMap(venue) && (
@@ -406,7 +439,7 @@
 
         {shareOpen && (
           <div className="mf-sheet-scrim" onClick={() => setShareOpen(false)} role="presentation">
-            <div className="mf-sheet" role="dialog" aria-labelledby="share-sheet-title" onClick={(e) => e.stopPropagation()}>
+            <div className="mf-sheet" role="dialog" aria-modal="true" aria-labelledby="share-sheet-title" onClick={(e) => e.stopPropagation()}>
               <div className="mf-sheet__grip" aria-hidden="true"></div>
               <h3 className="mf-sheet__title" id="share-sheet-title">Send to a carer</h3>
               <p className="mf-sheet__sub">Share a plain-English summary. No medical advice — they should check the original letter.</p>

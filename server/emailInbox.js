@@ -50,8 +50,25 @@ function envCredentials() {
 export function normalizeCredentials(input) {
   if (!input) return null;
   const email = (input.email || input.user || "").trim();
+  if (!email) return null;
+
+  const accessToken = (input.accessToken || "").trim();
+  const isOAuth = input.authType === "google_oauth" || Boolean(accessToken);
+  if (isOAuth) {
+    if (!accessToken) return null;
+    return {
+      email,
+      authType: "google_oauth",
+      accessToken,
+      imapHost: (input.imapHost || "imap.gmail.com").trim(),
+      imapPort: Number(input.imapPort || 993),
+      imapSecure: input.imapSecure !== false,
+      subjectFilter: (input.subjectFilter || DEFAULT_SUBJECT).trim(),
+    };
+  }
+
   const password = input.password || input.pass || "";
-  if (!email || !password) return null;
+  if (!password) return null;
   const guessed = guessImapHost(email);
   return {
     email,
@@ -153,14 +170,14 @@ async function extractLetterContent(parsedMail) {
 }
 
 function createImapClient(creds) {
+  const auth = creds.authType === "google_oauth" || creds.accessToken
+    ? { user: creds.email, accessToken: creds.accessToken }
+    : { user: creds.email, pass: creds.password };
   return new ImapFlow({
     host: creds.imapHost,
     port: creds.imapPort,
     secure: creds.imapSecure,
-    auth: {
-      user: creds.email,
-      pass: creds.password,
-    },
+    auth,
     logger: false,
   });
 }
@@ -168,7 +185,7 @@ function createImapClient(creds) {
 export async function testEmailConnection(credentials) {
   const creds = normalizeCredentials(credentials);
   if (!creds) {
-    const err = new Error("Email and password are required.");
+    const err = new Error("Email credentials are required.");
     err.status = 400;
     throw err;
   }
@@ -183,9 +200,12 @@ export async function testEmailConnection(credentials) {
       subjectFilter: creds.subjectFilter,
     };
   } catch (err) {
+    const oauth = creds.authType === "google_oauth";
     const e = new Error(
       err.authenticationFailed
-        ? "Could not sign in to your email. Check your address and app password."
+        ? (oauth
+          ? "Could not access Gmail. Try Connect with Google again and allow email access."
+          : "Could not sign in to your email. Check your address and app password.")
         : `Could not connect to ${creds.imapHost}. ${err.message}`
     );
     e.status = 401;

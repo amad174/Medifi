@@ -16,18 +16,33 @@
     ],
   };
 
-  function ChatPanel({ letters, currentLetter, patient, open, onToggle, docked }) {
+  function ChatPanel({ letters, currentLetter, patient, open, onToggle, docked, hideFab }) {
     const [mode, setMode] = React.useState("letters");
     const [messages, setMessages] = React.useState([]);
     const [input, setInput] = React.useState("");
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState("");
+    const [aiReady, setAiReady] = React.useState(null);
     const scrollRef = React.useRef(null);
+
+    React.useEffect(function () {
+      if (!window.MedifiLLM) {
+        setAiReady(false);
+        return;
+      }
+      window.MedifiLLM.isAvailable()
+        .then(function (ok) { setAiReady(ok); })
+        .catch(function () { setAiReady(false); });
+    }, []);
+
+    if (window.MedifiSheetA11y) {
+      window.MedifiSheetA11y.useEscape(onToggle, !docked && open);
+    }
 
     const savedLetters = React.useMemo(function () {
       return (letters || []).filter(function (l) {
-        return l && (l.fromLLM || l.fromUpload || String(l.id || "").startsWith("llm-")
-          || String(l.id || "").startsWith("scanned-") || l.savedAt);
+        return l && (l.fromLLM || l.fromUpload || l.fromEmail || String(l.id || "").startsWith("llm-")
+          || String(l.id || "").startsWith("scanned-") || String(l.id || "").startsWith("email-") || l.savedAt);
       }).slice(0, 20);
     }, [letters]);
 
@@ -45,8 +60,8 @@
     async function send(text) {
       const q = (text || input || "").trim();
       if (!q || busy) return;
-      if (!window.MedifiLLM) {
-        setError("AI is not available. Start the server with your API key in .env.");
+      if (!window.MedifiLLM || aiReady === false) {
+        setError("The assistant is not available right now. Letter scanning and summaries still work — try again later.");
         return;
       }
 
@@ -123,6 +138,13 @@
           </button>
         </div>
 
+        {aiReady === false && (
+          <div className="mf-chat__error">
+            <Icon name="alert" size={16} />
+            <span>Assistant offline — scan and read letters as usual.</span>
+          </div>
+        )}
+
         <p className="mf-chat__hint">
           {mode === "letters"
             ? savedLetters.length
@@ -169,7 +191,7 @@
         <div className="mf-chat__composer">
           <Input
             id="medifi-chat-input"
-            label=""
+            label={mode === "letters" ? "Ask about your letters" : "Ask a health question"}
             placeholder={mode === "letters" ? "Ask about your letters…" : "Ask a health question…"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -184,7 +206,7 @@
             variant="primary"
             size="md"
             onClick={() => send()}
-            disabled={!input.trim() || busy}
+            disabled={!input.trim() || busy || aiReady === false}
             aria-label="Send message"
           >
             <Icon name="arrowRight" size={18} />
@@ -202,7 +224,7 @@
       <React.Fragment>
         <button
           type="button"
-          className={"mf-chat-fab" + (open ? " mf-chat-fab--hidden" : "")}
+          className={"mf-chat-fab" + (open ? " mf-chat-fab--hidden" : "") + (hideFab ? " mf-chat-fab--below-action" : "")}
           onClick={onToggle}
           aria-label="Open Medifi assistant"
         >
@@ -211,7 +233,7 @@
         </button>
         {open && (
           <div className="mf-chat-scrim" onClick={onToggle} role="presentation">
-            <div className="mf-chat-drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Medifi assistant">
+            <div className="mf-chat-drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Medifi assistant">
               {panel}
             </div>
           </div>

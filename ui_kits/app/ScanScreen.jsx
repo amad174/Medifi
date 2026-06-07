@@ -43,7 +43,7 @@
     });
   }
 
-  function CameraView({ onCancel, onCapture }) {
+  function CameraView({ onCancel, onCapture, onUpload, onQuickCamera }) {
     const videoRef = React.useRef(null);
     const viewRef = React.useRef(null);
     const frameRef = React.useRef(null);
@@ -187,6 +187,18 @@
             <div className="mf-cam__error">
               <Icon name="alert" size={28} />
               <p>{cameraError}</p>
+              <div className="mf-cam__error-actions">
+                {onUpload && (
+                  <button type="button" className="mf-chip" onClick={function () { onCancel(); onUpload(); }}>
+                    Upload a file instead
+                  </button>
+                )}
+                {onQuickCamera && (
+                  <button type="button" className="mf-chip" onClick={function () { onCancel(); onQuickCamera(); }}>
+                    Use quick camera
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -207,7 +219,7 @@
         <div className="mf-img-preview__meta">
           <span className="mf-img-preview__name">{name}</span>
           {progress != null && !error && (
-            <span className="mf-img-preview__progress">Claude reading your letter… {progress}%</span>
+            <span className="mf-img-preview__progress">Reading your letter… {progress}%</span>
           )}
           {error && <span className="mf-img-preview__error">{error}</span>}
           {!progress && !error && (
@@ -230,6 +242,7 @@
     const [handwriting, setHandwriting] = React.useState(false);
     const [ocrNote, setOcrNote] = React.useState("");
     const [visionPlan, setVisionPlan] = React.useState(null);
+    const [showDemos, setShowDemos] = React.useState(false);
 
     const cameraInputRef = React.useRef(null);
     const fileInputRef = React.useRef(null);
@@ -287,7 +300,7 @@
       try {
         const health = await window.MedifiLLM.health();
         if (!health.llm || health.provider !== "anthropic") return null;
-        setOcrNote("Claude is reading your letter…");
+        setOcrNote("Medifi is reading your letter…");
         const plan = await window.MedifiLLM.parseLetterImage(file, setOcrProgress);
         const extracted = (plan.original || "").trim();
         if (extracted.replace(/\s/g, "").length < 6) return null;
@@ -299,11 +312,11 @@
         setOcrNote(
           autoScan
             ? "Letter read — building your plan…"
-            : "Claude read your letter — check the text below, then tap Make my plan."
+            : "Letter read — check the text below, then tap Make my plan."
         );
         return { ok: true, text: extracted, plan: plan };
       } catch (visionErr) {
-        const msg = visionErr.message || "Claude could not read this file.";
+        const msg = visionErr.message || "Could not read this file.";
         const hardFail = /API error|No API key|not valid JSON|not reachable/i.test(msg);
         if (hardFail) throw visionErr;
         console.warn("[Medifi] Claude vision failed:", msg);
@@ -334,10 +347,10 @@
       try {
         let vision = null;
         try {
-          setOcrNote("Claude is reading your letter photo…");
+          setOcrNote("Medifi is reading your letter photo…");
           vision = await tryClaudeVision(file, autoScan);
         } catch (visionErr) {
-          setOcrError(visionErr.message || "Claude could not read this photo.");
+          setOcrError(visionErr.message || "Could not read this photo. Try brighter light or paste the text below.");
           setBusy(false);
           setOcrProgress(null);
           return { ok: false };
@@ -394,7 +407,7 @@
 
         let extracted = (result.text || "").trim();
         if (extracted.replace(/\s/g, "").length < 80) {
-          setOcrNote("Scanned PDF — using Claude on the first page…");
+          setOcrNote("Scanned PDF — reading the first page…");
           const pageFile = await PDF.pdfFirstPageToFile(file);
           try {
             const vision = await tryClaudeVision(pageFile, false);
@@ -465,6 +478,8 @@
         <CameraView
           onCancel={() => setMode("form")}
           onCapture={handleCameraCapture}
+          onUpload={openFilePicker}
+          onQuickCamera={openNativeCamera}
         />
       );
     }
@@ -499,6 +514,10 @@
             {handwriting ? "Extra contrast for notes and handwriting" : "Turn on for handwritten letters"}
           </span>
         </div>
+
+        <p className="mf-scan-intro">
+          <strong>Take a photo</strong> for the best scan · <strong>Upload</strong> a photo or PDF from your files · <strong>Quick camera</strong> opens your phone&apos;s camera app
+        </p>
 
         <div className="mf-tiles mf-tiles--scan">
           <button type="button" className="mf-tile" onClick={openCamera}>
@@ -543,16 +562,21 @@
         )}
 
         <div className="mf-section">
-          <p className="mf-section__label">Or try a sample letter</p>
-          <div className="mf-chips">
-            {window.MEDIFI_LETTERS.map((l) => (
-              <button key={l.id} type="button"
-                className={"mf-chip" + (picked && picked.id === l.id ? " mf-chip--on" : "")}
-                onClick={() => pickSample(l)}>
-                {l.chip}
-              </button>
-            ))}
-          </div>
+          <button type="button" className="mf-link" onClick={() => setShowDemos(function (v) { return !v; })}>
+            {showDemos ? "Hide sample letters" : "Try a sample letter instead"}
+          </button>
+          {showDemos && (
+            <div className="mf-chips" style={{ marginTop: 8 }}>
+              {window.MEDIFI_LETTERS.map((l) => (
+                <button key={l.id} type="button"
+                  className={"mf-chip" + (picked && picked.id === l.id ? " mf-chip--on" : "")}
+                  onClick={() => pickSample(l)}
+                  aria-pressed={Boolean(picked && picked.id === l.id)}>
+                  {l.chip}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mf-paste-wrap">

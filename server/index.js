@@ -40,6 +40,18 @@ app.use((_req, res, next) => {
   if (_req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (
+    p === "/.env" ||
+    p.endsWith("/.env") ||
+    p.includes("/.git") ||
+    p.includes("/node_modules/")
+  ) {
+    return res.sendStatus(404);
+  }
+  next();
+});
 app.use(express.static(root));
 
 const SYSTEM_ASK = `You are Medifi, an NHS letter helper. Answer the patient's question using ONLY the letter text provided. Plain English, calm, no medical diagnosis. If unsure, say so and suggest calling the number on the letter or their GP. Always remind them to check the original letter.`;
