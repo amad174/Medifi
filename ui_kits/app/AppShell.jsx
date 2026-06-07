@@ -500,7 +500,7 @@
     const showActionbar = authed && !processing && screen === "result";
 
     return (
-      <div className={"mf-app" + (sidebarChat ? " mf-app--sidebar" : "") + (showPublicChrome ? " mf-app--public" : "")}>
+      <div className={"mf-app" + (sidebarChat ? " mf-app--sidebar" : "") + (showPublicChrome ? " mf-app--public" : "") + (showMobileNav ? " mf-app--has-nav" : "")}>
         {showPublicChrome && (
           <PublicHeader
             onLogo={goLanding}

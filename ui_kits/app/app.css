@@ -3136,3 +3136,175 @@ button.mf-contact {
     @keyframes mf-rise-mobile { from { transform: translateY(100%); } }
   }
 }
+
+/* ---------- Mobile polish ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@supports (min-height: 100dvh) {
+  body,
+  #root,
+  .mf-app {
+    min-height: 100dvh;
+  }
+  .mf-main-column {
+    min-height: calc(100dvh - var(--mf-header-height));
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --mf-header-height: 72px;
+    --mf-header-height-public: 68px;
+  }
+
+  .mf-header__inner {
+    padding: 0 14px;
+    gap: 8px;
+  }
+
+  .mf-header__public-nav .mf-header__textbtn:first-child {
+    display: none;
+  }
+
+  .mf-header__logo {
+    width: min(128px, 36vw);
+    height: 40px;
+  }
+
+  .mf-body {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 20px;
+  }
+
+  .mf-screen {
+    padding-top: 16px;
+    padding-bottom: 20px;
+    gap: 20px;
+  }
+
+  .mf-landing {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .mf-signup-hero {
+    padding: 18px 16px;
+  }
+
+  .mf-nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 0;
+    margin: 0 0 calc(8px + env(safe-area-inset-bottom));
+    z-index: 95;
+  }
+
+  .mf-app--has-nav .mf-main-column {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+
+  .mf-app--has-nav .mf-bottom-stack {
+    margin-bottom: 0;
+  }
+
+  .mf-nav__item {
+    min-height: 44px;
+    padding: 10px 4px 8px;
+  }
+
+  .mf-iconbtn,
+  .mf-avatar,
+  .mf-header__cta,
+  .mf-header__textbtn,
+  .mf-chip,
+  .mf-chat-fab {
+    touch-action: manipulation;
+  }
+
+  .mf-iconbtn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mf-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mf-header__cta {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .mf-header__textbtn {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .mf-select,
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+
+  .mf-chat-fab {
+    right: 14px;
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    min-height: 44px;
+  }
+
+  .mf-chat-fab--below-action {
+    bottom: calc(172px + env(safe-area-inset-bottom));
+  }
+
+  .mf-toast {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+  }
+
+  .mf-app--has-nav .mf-toast {
+    bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+
+  .mf-cam__top {
+    padding: calc(10px + env(safe-area-inset-top)) 16px 6px;
+  }
+
+  .mf-cam__bar {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .mf-bottom-stack .mf-actionbar {
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .mf-site-footer {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .mf-app--has-nav .mf-site-footer {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .mf-sheet {
+    max-height: calc(92dvh - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mf-chat__messages {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mf-result-grid,
+  .mf-landing-hero__visual img,
+  .mf-site-footer__brand {
+    max-width: 100%;
+  }
+}

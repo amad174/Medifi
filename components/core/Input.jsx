@@ -15,7 +15,7 @@ const CSS = `
 .mf-field__err{font:var(--type-caption);color:var(--risk-text);}
 .mf-input,.mf-textarea{
   width:100%;box-sizing:border-box;font-family:var(--font-sans);
-  font-size:var(--text-md);color:var(--text-primary);
+  font-size:max(16px,var(--text-md));color:var(--text-primary);
   background:var(--surface-card);border:1.5px solid var(--border-strong);
   border-radius:var(--radius-md);padding:0 var(--pad-control);min-height:48px;
   transition:border-color var(--dur-fast) var(--ease-standard),box-shadow var(--dur-fast) var(--ease-standard);

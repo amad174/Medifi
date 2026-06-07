@@ -61,13 +61,15 @@
           return;
         }
         try {
+          const mobile = window.matchMedia && window.matchMedia("(max-width: 767px)").matches;
           const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: { ideal: "environment" },
-              width: { min: 1280, ideal: 1920, max: 4096 },
-              height: { min: 720, ideal: 1080, max: 4096 },
-              focusMode: { ideal: "continuous" },
-            },
+            video: mobile
+              ? { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+              : {
+                  facingMode: { ideal: "environment" },
+                  width: { min: 1280, ideal: 1920, max: 4096 },
+                  height: { min: 720, ideal: 1080, max: 4096 },
+                },
             audio: false,
           });
           if (cancelled) {
