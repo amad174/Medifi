@@ -11,6 +11,7 @@
       }
     },
     { "src": "index.html", "use": "@vercel/static" },
+    { "src": "favicon.png", "use": "@vercel/static" },
     { "src": "ui_kits/**", "use": "@vercel/static" },
     { "src": "assets/**", "use": "@vercel/static" },
     { "src": "styles.css", "use": "@vercel/static" },
