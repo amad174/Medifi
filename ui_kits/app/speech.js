@@ -8,7 +8,8 @@
 
   function apiBase() {
     if (window.MedifiLLM) return window.MedifiLLM.apiBase();
-    if (window.location.port === "3001" || window.location.hostname === "localhost") {
+    if (window.location.protocol === "file:") return "http://localhost:3001";
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
       return window.location.origin;
     }
     return "http://localhost:3001";

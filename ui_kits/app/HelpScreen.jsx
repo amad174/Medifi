@@ -10,38 +10,38 @@
     { q: "What do the colours mean?",
       a: "Green means a detail looks fine. Amber means something is unclear or missing and worth a check. Red means something may be wrong — like a date that has already passed — and you should act soon." },
     { q: "Is my information private?",
-      a: "Your letters stay on your device for this demo. Medifi never shares your information without your say-so." },
+      a: "Medifi is built for privacy. If you sign in, your letters are stored in your private cloud account. Without an account, data stays on this device. We never sell or share your information without your permission." },
     { q: "Can I read this in another language?",
       a: "Yes — open a letter and tap Translate. Translated summaries are there to support you; the original English letter remains the source of truth." },
     { q: "How do transport routes work?",
       a: "When your letter includes a clinic or hospital, Medifi suggests bus, tube, and driving options with a suggested leave-by time. Open Google Maps or Apple Maps for turn-by-turn directions. Routes are a guide — always check the address on your original letter." },
   ];
 
-  function FaqItem({ item, open, onToggle }) {
+  function FaqItem({ item, id, open, onToggle }) {
+    var answerId = "mf-faq-a-" + id;
     return (
       <div className={"mf-faq" + (open ? " mf-faq--open" : "")}>
-        <button type="button" className="mf-faq__q" onClick={onToggle} aria-expanded={open}>
+        <button type="button" className="mf-faq__q" onClick={onToggle}
+          aria-expanded={open} aria-controls={answerId} id={"mf-faq-q-" + id}>
           <span>{item.q}</span>
           <Icon name={open ? "x" : "plus"} size={18} />
         </button>
-        {open && <p className="mf-faq__a">{item.a}</p>}
+        {open && <p className="mf-faq__a" id={answerId} role="region" aria-labelledby={"mf-faq-q-" + id}>{item.a}</p>}
       </div>
     );
   }
 
-  function HelpScreen() {
+  function HelpScreen({ onBack }) {
     const [open, setOpen] = React.useState(0);
     const assets = window.MEDIFI_ASSETS || {};
     return (
       <div className="mf-screen">
+        {onBack && (
+          <button type="button" className="mf-link mf-help-back" onClick={onBack}>
+            ← Back to home
+          </button>
+        )}
         <div className="mf-help-hero">
-          {assets.brand && (
-            <img
-              src={assets.brand}
-              alt="Medifi — always putting patients first"
-              className="mf-brand-lockup mf-brand-lockup--help"
-            />
-          )}
           {assets.nhsTeam && (
             <img src={assets.nhsTeam} alt="NHS care team" className="mf-help-hero__team" />
           )}
@@ -55,7 +55,7 @@
           <p className="mf-section__label">Common questions</p>
           <div className="mf-stack">
             {FAQS.map((f, i) => (
-              <FaqItem key={i} item={f} open={open === i} onToggle={() => setOpen(open === i ? -1 : i)} />
+              <FaqItem key={i} id={i} item={f} open={open === i} onToggle={() => setOpen(open === i ? -1 : i)} />
             ))}
           </div>
         </div>
@@ -87,13 +87,6 @@
           </div>
         </div>
 
-        {assets.brand && (
-          <img
-            src={assets.brand}
-            alt="Medifi — always putting patients first"
-            className="mf-brand-lockup mf-brand-lockup--footer"
-          />
-        )}
         <p className="mf-disclaimer">Medifi does not give medical advice. For health concerns, contact your GP, 111, or 999 in an emergency.</p>
       </div>
     );

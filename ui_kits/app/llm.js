@@ -5,13 +5,17 @@
 
   function apiBase() {
     if (window.MEDIFI_CONFIG && window.MEDIFI_CONFIG.apiBase) {
-      return window.MEDIFI_CONFIG.apiBase.replace(/\/$/, "");
+      var cfg = String(window.MEDIFI_CONFIG.apiBase).trim();
+      if (cfg) return cfg.replace(/\/$/, "");
     }
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) return stored.replace(/\/$/, "");
     } catch (_) { /* ignore */ }
-    if (window.location.port === "3001" || window.location.hostname === "localhost") {
+    if (window.location.protocol === "file:") {
+      return "http://localhost:3001";
+    }
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
       return window.location.origin;
     }
     return "http://localhost:3001";

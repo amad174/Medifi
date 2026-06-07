@@ -12,10 +12,11 @@
 
     const event = letter.event;
     const best = Routes.bestRoute(venue);
+    if (window.MedifiSheetA11y) window.MedifiSheetA11y.useEscape(onClose);
 
     return (
       <div className="mf-sheet-scrim" onClick={onClose} role="presentation">
-        <div className="mf-sheet mf-sheet--routes" role="dialog" aria-labelledby="route-sheet-title" onClick={(e) => e.stopPropagation()}>
+        <div className="mf-sheet mf-sheet--routes" role="dialog" aria-modal="true" aria-labelledby="route-sheet-title" onClick={(e) => e.stopPropagation()}>
           <div className="mf-sheet__grip" aria-hidden="true"></div>
           <h3 className="mf-sheet__title" id="route-sheet-title">Getting there</h3>
           <p className="mf-sheet__sub">Routes to help you plan your journey. Always check against your original letter.</p>
@@ -53,7 +54,13 @@
           )}
           <div className="mf-route-list">
             {(venue.routes || []).map((r) => (
-              <div key={r.id} className={"mf-route" + (best && best.id === r.id ? " mf-route--best" : "")}>
+              <a
+                key={r.id}
+                className={"mf-route mf-route--link" + (best && best.id === r.id ? " mf-route--best" : "")}
+                href={Routes.mapsDirectionsUrl(venue)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <span className="mf-route__icon"><Icon name={MODE_ICON[r.mode] || "pin"} size={20} /></span>
                 <div className="mf-route__main">
                   <span className="mf-route__head">
@@ -65,8 +72,9 @@
                   {event && (
                     <span className="mf-route__leave">Leave by {Routes.leaveBy(event, r.leaveByOffsetMins)}</span>
                   )}
+                  <span className="mf-route__open">Open in Google Maps</span>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
 

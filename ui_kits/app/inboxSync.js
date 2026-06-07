@@ -10,9 +10,16 @@
   }
 
   function apiBase() {
-    if (window.MEDIFI_API_BASE) return window.MEDIFI_API_BASE.replace(/\/$/, "");
+    if (window.MedifiLLM) return window.MedifiLLM.apiBase();
+    if (window.MEDIFI_CONFIG && window.MEDIFI_CONFIG.apiBase) {
+      var cfg = String(window.MEDIFI_CONFIG.apiBase).trim();
+      if (cfg) return cfg.replace(/\/$/, "");
+    }
     if (location.protocol === "file:") return "http://localhost:3001";
-    return "";
+    if (location.protocol === "http:" || location.protocol === "https:") {
+      return location.origin;
+    }
+    return "http://localhost:3001";
   }
 
   function loadImportedIds() {
@@ -47,6 +54,30 @@
     return false;
   }
 
+  function hasEmailAuth(credentials) {
+    if (!credentials || !credentials.email) return false;
+    if (credentials.authType === "google_oauth" || credentials.accessToken) {
+      return Boolean(credentials.accessToken);
+    }
+    return Boolean(credentials.password);
+  }
+
+  function credentialsPayload(credentials) {
+    var payload = {
+      email: credentials.email,
+      imapHost: credentials.imapHost,
+      imapPort: credentials.imapPort,
+      subjectFilter: credentials.subjectFilter,
+    };
+    if (credentials.authType === "google_oauth" || credentials.accessToken) {
+      payload.authType = "google_oauth";
+      payload.accessToken = credentials.accessToken;
+    } else {
+      payload.password = credentials.password;
+    }
+    return payload;
+  }
+
   function getCredentials() {
     if (window.MedifiAuth && window.MedifiAuth.getEmailInbox) {
       return window.MedifiAuth.getEmailInbox();
@@ -67,7 +98,7 @@
     const onSaved = opts && opts.onSaved;
     const onComplete = opts && opts.onComplete;
     const credentials = getCredentials();
-    if (!credentials || !credentials.email || !credentials.password) {
+    if (!hasEmailAuth(credentials)) {
       const out = { ok: false, configured: false, imported: 0 };
       if (onComplete) onComplete(out);
       return out;
@@ -84,13 +115,7 @@
         body: JSON.stringify({
           knownIds,
           userId: getUserId(),
-          credentials: {
-            email: credentials.email,
-            password: credentials.password,
-            imapHost: credentials.imapHost,
-            imapPort: credentials.imapPort,
-            subjectFilter: credentials.subjectFilter,
-          },
+          credentials: credentialsPayload(credentials),
         }),
       });
     } catch (err) {
@@ -147,13 +172,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: getUserId(),
-          credentials: {
-            email: credentials.email,
-            password: credentials.password,
-            imapHost: credentials.imapHost,
-            imapPort: credentials.imapPort,
-            subjectFilter: credentials.subjectFilter,
-          },
+          credentials: credentialsPayload(credentials),
         }),
       });
       return await res.json();

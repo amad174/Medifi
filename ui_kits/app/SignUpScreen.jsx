@@ -46,8 +46,12 @@
     );
   }
 
-  function SignUpScreen({ onComplete, isEdit }) {
-    const [mode, setMode] = React.useState(isEdit ? "edit" : "signup");
+  function SignUpScreen({ onComplete, isEdit, initialMode, onCancel }) {
+    const [mode, setMode] = React.useState(isEdit ? "edit" : (initialMode || "signup"));
+
+    React.useEffect(function () {
+      if (!isEdit && initialMode) setMode(initialMode);
+    }, [initialMode, isEdit]);
     const [form, setForm] = React.useState(function () { return Patient.load(); });
     const [password, setPassword] = React.useState("");
     const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -93,9 +97,14 @@
       setSubmitting(true);
       setError("");
       try {
-        await Auth.loginWithGoogle();
+        var user = await Auth.loginWithGoogle();
+        if (user) {
+          onComplete(user);
+          return;
+        }
+        setSubmitting(true);
       } catch (err) {
-        setError(err.message || "Could not start Google sign-in.");
+        setError(err.message || "Could not sign in with Google.");
         setSubmitting(false);
       }
     }
@@ -142,13 +151,6 @@
     return (
       <div className="mf-screen mf-screen--signup">
         <div className="mf-signup-hero">
-          {window.MEDIFI_ASSETS && window.MEDIFI_ASSETS.brand && !isEdit && (
-            <img
-              src={window.MEDIFI_ASSETS.brand}
-              alt="Medifi — always putting patients first"
-              className="mf-brand-lockup mf-brand-lockup--signup"
-            />
-          )}
           <Eyebrow tone="accent">{isEdit ? "Your profile" : mode === "login" ? "Welcome back" : "Welcome to Medifi"}</Eyebrow>
           <h1 className="mf-signup-hero__h">
             {isEdit ? "Update your details" : mode === "login" ? "Sign in" : "Create your account"}
@@ -182,6 +184,7 @@
             <button
               type="button"
               className={"mf-chip" + (mode === "signup" ? " mf-chip--on" : "")}
+              aria-pressed={mode === "signup"}
               onClick={() => { setMode("signup"); setError(""); }}
             >
               New account
@@ -189,6 +192,7 @@
             <button
               type="button"
               className={"mf-chip" + (mode === "login" ? " mf-chip--on" : "")}
+              aria-pressed={mode === "login"}
               onClick={() => { setMode("login"); setError(""); }}
             >
               Sign in
@@ -334,11 +338,20 @@
           </div>
         )}
 
-        <Button variant="primary" size="lg" fullWidth onClick={submit} disabled={submitting}>
-          {submitting ? "Please wait…" : isEdit ? "Save changes" : mode === "login" ? "Sign in" : "Create my account"}
-        </Button>
+        <div className="mf-signup-actions">
+          <Button variant="primary" size="lg" fullWidth onClick={submit} disabled={submitting}>
+            {submitting ? "Please wait…" : isEdit ? "Save changes" : mode === "login" ? "Sign in" : "Create my account"}
+          </Button>
+          {onCancel && !isEdit && (
+            <Button variant="secondary" size="lg" fullWidth onClick={onCancel}>
+              Back to home
+            </Button>
+          )}
+        </div>
         <p className="mf-disclaimer">
-          Your account and letters are saved in Firebase. This is not medical advice.
+          {Auth && Auth.firebaseReady && Auth.firebaseReady()
+            ? "When you sign in, your account and letters are saved securely. This is not medical advice."
+            : "Your profile is saved on this device. Configure Firebase to sync across devices. This is not medical advice."}
         </p>
       </div>
     );
