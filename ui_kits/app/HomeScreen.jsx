@@ -30,13 +30,23 @@
     const firstName = patient && patient.name
       ? (window.MedifiPatient ? window.MedifiPatient.firstName(patient.name) : patient.name.split(" ")[0])
       : "there";
+    const assets = window.MEDIFI_ASSETS || {};
 
     return (
       <div className="mf-screen mf-screen--home">
         <div className="mf-greet">
-          <Eyebrow tone="accent">Tuesday 6 June</Eyebrow>
-          <h1 className="mf-greet__h">Hi {firstName}</h1>
-          <p className="mf-greet__sub">Photograph or paste an NHS letter and Medifi will turn it into a clear plan.</p>
+          {assets.brand && (
+            <img
+              src={assets.brand}
+              alt="Medifi — always putting patients first"
+              className="mf-brand-lockup mf-brand-lockup--greet"
+            />
+          )}
+          <div className="mf-greet__content">
+            <Eyebrow tone="accent">Tuesday 6 June</Eyebrow>
+            <h1 className="mf-greet__h">Hi {firstName}</h1>
+            <p className="mf-greet__sub">Photograph or paste an NHS letter and Medifi will turn it into a clear plan.</p>
+          </div>
         </div>
 
         <button type="button" className="mf-cta" onClick={onScan}>

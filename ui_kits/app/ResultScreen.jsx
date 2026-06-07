@@ -29,6 +29,7 @@
     const [shareOpen, setShareOpen] = React.useState(false);
     const [shareText, setShareText] = React.useState("");
     const [speaking, setSpeaking] = React.useState(false);
+    const [preparingSpeech, setPreparingSpeech] = React.useState(false);
     const [speechError, setSpeechError] = React.useState("");
     const xlateCache = React.useRef({});
     const toggle = (id) => setDone((d) => ({ ...d, [id]: !d[id] }));
@@ -39,9 +40,18 @@
       setXlateError("");
       setSpeechError("");
       setSpeaking(false);
+      setPreparingSpeech(false);
       xlateCache.current = {};
-      if (window.MedifiSpeech) window.MedifiSpeech.stop();
+      if (window.MedifiSpeech) {
+        window.MedifiSpeech.stop();
+        window.MedifiSpeech.clearCache();
+      }
     }, [letter.id]);
+
+    React.useEffect(function () {
+      if (!window.MedifiSpeech || xlateLoading) return;
+      window.MedifiSpeech.prefetch(letter, xlate || letter, lang);
+    }, [letter.id, lang, xlate, xlateLoading]);
 
     React.useEffect(function () {
       return function () {
@@ -119,18 +129,23 @@
       const Speech = window.MedifiSpeech;
       if (!Speech) return;
       setSpeechError("");
-      if (speaking || Speech.isSpeaking()) {
+      if (speaking || preparingSpeech || Speech.isSpeaking()) {
         Speech.stop();
         setSpeaking(false);
+        setPreparingSpeech(false);
         return;
       }
       try {
-        setSpeaking(true);
+        setPreparingSpeech(true);
         await Speech.speakLetter(letter, xlate || letter, lang, function () {
           setSpeaking(false);
+          setPreparingSpeech(false);
         });
+        setPreparingSpeech(false);
+        setSpeaking(true);
       } catch (err) {
         setSpeaking(false);
+        setPreparingSpeech(false);
         setSpeechError(err.message || "Could not read aloud.");
       }
     }
@@ -179,22 +194,59 @@
     const riskCount = view.risks.filter((r) => r.level !== "safe").length;
     const venue = Routes && Routes.venueForLetter(letter);
     const bestRoute = venue && Routes ? Routes.bestRoute(venue) : null;
+    const statusLabel = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
 
     function handleCheck(c) {
       if (c.action === "routes" && onPlanRoute) onPlanRoute();
       else toggle(c.id);
     }
 
+    const quickTools = (
+      <div className="mf-result-tools">
+        <button type="button" className="mf-result-tool" onClick={toggleListen} disabled={xlateLoading}>
+          <Icon name="volume" size={18} />
+          <span>{speaking ? "Stop" : preparingSpeech ? "Preparing…" : "Listen"}</span>
+        </button>
+        <button type="button" className="mf-result-tool" onClick={() => setLangOpen((o) => !o)} disabled={xlateLoading}>
+          <Icon name="languages" size={18} />
+          <span>{xlateLoading ? "Translating…" : (lang === "English" ? "Translate" : lang)}</span>
+        </button>
+        <button type="button" className="mf-result-tool" onClick={shareCarer}>
+          <Icon name="share" size={18} />
+          <span>Share</span>
+        </button>
+      </div>
+    );
+
     return (
       <div className="mf-screen mf-screen--result">
-        <div className="mf-hero">
-          <Eyebrow tone="accent">Your plan</Eyebrow>
-          <h1 className={"mf-hero__h" + (isRtl ? " mf-rtl" : "")}>{view.headline}</h1>
-          <div className="mf-hero__when">
-            <Icon name="clock" size={18} />
-            <span className={isRtl ? "mf-rtl" : ""}>{view.when}</span>
+        <header className="mf-result-banner">
+          <div className="mf-result-banner__row">
+            <Eyebrow tone="accent">Your plan</Eyebrow>
+            <div className="mf-result-banner__badges">
+              {letter.chip && <span className="mf-result-chip">{letter.chip}</span>}
+              <Badge tone={LEVEL_TONE[view.worstLevel]} dot>{statusLabel[view.worstLevel] || "Review"}</Badge>
+            </div>
           </div>
-        </div>
+          <h1 className={"mf-result-banner__title" + (isRtl ? " mf-rtl" : "")}>{view.headline}</h1>
+          <div className="mf-result-banner__meta">
+            {letter.sender && <span className="mf-result-banner__sender">{letter.sender}</span>}
+            <span className="mf-result-banner__when">
+              <Icon name="clock" size={16} />
+              <span className={isRtl ? "mf-rtl" : ""}>{view.when}</span>
+            </span>
+          </div>
+          {quickTools}
+          {langOpen && (
+            <div className="mf-langs mf-langs--banner">
+              {LANGS.map((l) => (
+                <button key={l} type="button"
+                  className={"mf-chip" + (lang === l ? " mf-chip--on" : "")}
+                  onClick={() => pickLanguage(l)}>{l}</button>
+              ))}
+            </div>
+          )}
+        </header>
 
         {xlateLoading && (
           <div className="mf-xlate-note">
@@ -217,68 +269,111 @@
           </div>
         )}
 
-        <div className="mf-result-grid">
-          <div className="mf-result-grid__main">
-            <div className="mf-section">
-              <p className="mf-section__label">
-                What to check
-                {riskCount > 0 && <Badge tone={LEVEL_TONE[view.worstLevel]}>{riskCount} to review</Badge>}
-              </p>
-              <div className="mf-stack">
-                {view.risks.map((r, i) => (
-                  <RiskFlag key={i} level={r.level} title={r.title}
-                    action={r.level === "risk" ? <Button variant="danger" size="sm" iconLeft={<Icon name="phone" size={16} />}>Call to check</Button> : null}>
-                    <span className={isRtl ? "mf-rtl" : ""}>{r.text}</span>
-                  </RiskFlag>
-                ))}
+        <div className="mf-result-dashboard">
+          <section className="mf-result-panel mf-result-panel--summary">
+            <h2 className="mf-result-panel__title">{lang === "English" ? "In plain English" : "Summary"}</h2>
+            <p className={"mf-result-summary" + (isRtl ? " mf-rtl" : "")}>{view.summary}</p>
+            {speechError && (
+              <div className="mf-banner mf-banner--compact">
+                <Icon name="alert" size={18} />
+                <span>{speechError}</span>
               </div>
-            </div>
+            )}
+          </section>
 
-            <div className="mf-section">
-              <p className="mf-section__label">{lang === "English" ? "In plain English" : "Summary"}</p>
-              <Card variant="accent">
-                <p className={"mf-summary" + (isRtl ? " mf-rtl" : "")}>{view.summary}</p>
-                <div className="mf-listen">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    iconLeft={<Icon name="volume" size={18} />}
-                    onClick={toggleListen}
-                    disabled={xlateLoading}
-                  >
-                    {speaking ? "Stop" : "Listen to summary"}
-                  </Button>
-                  {speaking && <span className="mf-listen__hint">Reading your plan aloud…</span>}
+          <section className="mf-result-panel mf-result-panel--actions">
+            <h2 className="mf-result-panel__title">What to do next</h2>
+            <div className="mf-result-checklist">
+              {view.checklist.map((c) => (
+                <ChecklistItem key={c.id} label={c.label} meta={c.meta}
+                  icon={<Icon name={c.icon} size={20} />}
+                  done={!!done[c.id]} onToggle={() => handleCheck(c)} />
+              ))}
+            </div>
+            {letter.medicines && (
+              <div className="mf-result-meds">
+                {letter.medicines.map((m, i) => (
+                  <div key={i} className="mf-med">
+                    <span className="mf-med__icon"><Icon name="clock" size={20} /></span>
+                    <div className="mf-med__main">
+                      <span className="mf-med__name">{m.name}</span>
+                      <span className="mf-med__note">{m.dose} · {m.note}</span>
+                    </div>
+                  </div>
+                ))}
+                <Button variant="secondary" size="sm" fullWidth iconLeft={<Icon name="calendar" size={18} />} onClick={onAddReminders}>
+                  Add medicine reminders
+                </Button>
+              </div>
+            )}
+          </section>
+
+          <section className="mf-result-panel mf-result-panel--risks">
+            <h2 className="mf-result-panel__title">
+              What to check
+              {riskCount > 0 && <Badge tone={LEVEL_TONE[view.worstLevel]}>{riskCount} to review</Badge>}
+            </h2>
+            <div className="mf-result-risks">
+              {view.risks.map((r, i) => (
+                <RiskFlag key={i} level={r.level} title={r.title}
+                  action={r.level === "risk" ? <Button variant="danger" size="sm" iconLeft={<Icon name="phone" size={16} />}>Call</Button> : null}>
+                  <span className={isRtl ? "mf-rtl" : ""}>{r.text}</span>
+                </RiskFlag>
+              ))}
+            </div>
+          </section>
+
+          <section className="mf-result-panel mf-result-panel--ask">
+            <h2 className="mf-result-panel__title">Ask about this letter</h2>
+            <div className="mf-ask">
+              <div className="mf-ask__row">
+                <Input placeholder="e.g. What do I need to bring?"
+                  value={q} onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) handleAsk(); }} />
+                <Button variant="secondary" iconLeft={<Icon name="arrowRight" size={18} />}
+                  disabled={!q.trim() || asking} onClick={handleAsk} aria-label="Ask" />
+              </div>
+              {asking && (
+                <div className="mf-ask__answer">
+                  <Icon name="sparkle" size={18} />
+                  <span>Thinking…</span>
                 </div>
-              </Card>
-              {speechError && (
-                <div className="mf-banner" style={{ marginTop: 8 }}>
+              )}
+              {askError && (
+                <div className="mf-banner mf-banner--compact">
                   <Icon name="alert" size={18} />
-                  <span>{speechError}</span>
+                  <span>{askError}</span>
+                </div>
+              )}
+              {asked && answer && !asking && (
+                <div className="mf-ask__answer">
+                  <Icon name="sparkle" size={18} />
+                  <span>{answer}</span>
                 </div>
               )}
             </div>
+          </section>
 
-            <div className="mf-section">
-              <p className="mf-section__label">The details Medifi found</p>
-              <Card>
-                {view.fields.map((f, i) => (
-                  <FieldRow key={i} label={f.label} value={f.value} missing={f.missing} />
-                ))}
-              </Card>
-              <button type="button" className="mf-link" onClick={() => setShowOriginal((s) => !s)}>
-                <Icon name="file" size={16} />
-                {showOriginal ? "Hide original letter" : "Show original letter"}
-              </button>
-              {showOriginal && <pre className="mf-original">{letter.original}</pre>}
+          <section className="mf-result-panel mf-result-panel--details">
+            <h2 className="mf-result-panel__title">Details from your letter</h2>
+            <div className="mf-result-fields">
+              {view.fields.map((f, i) => (
+                <FieldRow key={i} label={f.label} value={f.value} missing={f.missing} />
+              ))}
             </div>
+            <button type="button" className="mf-link" onClick={() => setShowOriginal((s) => !s)}>
+              <Icon name="file" size={16} />
+              {showOriginal ? "Hide original letter" : "Show original letter"}
+            </button>
+            {showOriginal && <pre className="mf-original">{letter.original}</pre>}
+          </section>
 
-            {/* Transport routes */}
-            {venue && Routes && (
-              <div className="mf-section">
-                <p className="mf-section__label">Getting there</p>
-                <div className="mf-route-card">
-                  {Routes.hasMap(venue) && <window.MapPreview venue={venue} />}
+          {venue && Routes && Routes.hasMap(venue) && (
+            <section className="mf-result-panel mf-result-panel--map">
+              <h2 className="mf-result-panel__title">Getting there</h2>
+              <div className="mf-route-card mf-route-card--inline">
+                {Routes.hasMap(venue) && <window.MapPreview venue={venue} />}
+                <div className="mf-route-card__body">
                   <div className="mf-route-card__head">
                     <span className="mf-route-card__icon"><Icon name="pin" size={20} /></span>
                     <div className="mf-route-card__main">
@@ -298,110 +393,16 @@
                       </span>
                     </div>
                   )}
-                  {venue.estimated && (
-                    <p className="mf-route-card__note">Address not in your letter — confirm when you call.</p>
-                  )}
-                  <Button variant="secondary" fullWidth iconLeft={<Icon name="map" size={18} />} onClick={onPlanRoute}>
-                    See all routes and open maps
+                  <Button variant="secondary" size="sm" iconLeft={<Icon name="map" size={18} />} onClick={onPlanRoute}>
+                    All routes &amp; maps
                   </Button>
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="mf-result-grid__side">
-            <div className="mf-section">
-              <p className="mf-section__label">What to do next</p>
-              <div className="mf-stack">
-                {view.checklist.map((c) => (
-                  <ChecklistItem key={c.id} label={c.label} meta={c.meta}
-                    icon={<Icon name={c.icon} size={20} />}
-                    done={!!done[c.id]} onToggle={() => handleCheck(c)} />
-                ))}
-              </div>
-            </div>
-
-            <div className="mf-section">
-              <p className="mf-section__label">Ask about this letter</p>
-              <div className="mf-ask">
-                <div className="mf-ask__row">
-                  <Input placeholder="e.g. What do I need to bring?"
-                    value={q} onChange={(e) => setQ(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) handleAsk(); }} />
-                  <Button variant="secondary" iconLeft={<Icon name="arrowRight" size={18} />}
-                    disabled={!q.trim() || asking} onClick={handleAsk} aria-label="Ask" />
-                </div>
-                {asking && (
-                  <div className="mf-ask__answer">
-                    <Icon name="sparkle" size={18} />
-                    <span>Thinking…</span>
-                  </div>
-                )}
-                {askError && (
-                  <div className="mf-banner">
-                    <Icon name="alert" size={18} />
-                    <span>{askError}</span>
-                  </div>
-                )}
-                {asked && answer && !asking && (
-                  <div className="mf-ask__answer">
-                    <Icon name="sparkle" size={18} />
-                    <span>{answer}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {letter.medicines && (
-              <div className="mf-section">
-                <p className="mf-section__label">Medicine reminders</p>
-                <div className="mf-stack">
-                  {letter.medicines.map((m, i) => (
-                    <div key={i} className="mf-med">
-                      <span className="mf-med__icon"><Icon name="clock" size={20} /></span>
-                      <div className="mf-med__main">
-                        <span className="mf-med__name">{m.name}</span>
-                        <span className="mf-med__note">{m.dose} · {m.note}</span>
-                        <div className="mf-med__times">
-                          {m.times.map((t) => <span key={t} className="mf-med__time">{t}</span>)}
-                          <span className="mf-med__days">for {m.days} days</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="secondary" fullWidth iconLeft={<Icon name="calendar" size={18} />} onClick={onAddReminders}>
-                  Add reminders to my calendar
-                </Button>
-              </div>
-            )}
-
-            <div className="mf-tools mf-tools--3">
-              <button type="button" className="mf-tool" onClick={toggleListen} disabled={xlateLoading}>
-                <Icon name="volume" size={20} />
-                <span>{speaking ? "Stop" : "Listen"}</span>
-              </button>
-              <button type="button" className="mf-tool" onClick={() => setLangOpen((o) => !o)} disabled={xlateLoading}>
-                <Icon name="languages" size={20} />
-                <span>{xlateLoading ? "Translating…" : (lang === "English" ? "Translate" : lang)}</span>
-              </button>
-              <button type="button" className="mf-tool" onClick={shareCarer}>
-                <Icon name="share" size={20} /><span>Send to a carer</span>
-              </button>
-            </div>
-            {langOpen && (
-              <div className="mf-langs">
-                {LANGS.map((l) => (
-                  <button key={l} type="button"
-                    className={"mf-chip" + (lang === l ? " mf-chip--on" : "")}
-                    onClick={() => pickLanguage(l)}>{l}</button>
-                ))}
-              </div>
-            )}
-          </div>
+            </section>
+          )}
         </div>
 
-        <p className="mf-disclaimer">Medifi explains and organises NHS information. It does not give medical advice. Always check against your original letter.</p>
+        <p className="mf-disclaimer mf-disclaimer--result">Medifi explains and organises NHS information. It does not give medical advice. Always check against your original letter.</p>
 
         {shareOpen && (
           <div className="mf-sheet-scrim" onClick={() => setShareOpen(false)} role="presentation">

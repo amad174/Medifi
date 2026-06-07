@@ -31,8 +31,26 @@
 
   function HelpScreen() {
     const [open, setOpen] = React.useState(0);
+    const assets = window.MEDIFI_ASSETS || {};
     return (
       <div className="mf-screen">
+        <div className="mf-help-hero">
+          {assets.brand && (
+            <img
+              src={assets.brand}
+              alt="Medifi — always putting patients first"
+              className="mf-brand-lockup mf-brand-lockup--help"
+            />
+          )}
+          {assets.nhsTeam && (
+            <img src={assets.nhsTeam} alt="NHS care team" className="mf-help-hero__team" />
+          )}
+          <div className="mf-help-hero__text">
+            <h2 className="mf-help-hero__h">Help understanding your NHS letters</h2>
+            <p className="mf-help-hero__sub">Medifi works alongside your GP and hospital team — your original letter is always the source of truth.</p>
+          </div>
+        </div>
+
         <div className="mf-section">
           <p className="mf-section__label">Common questions</p>
           <div className="mf-stack">
@@ -44,6 +62,12 @@
 
         <div className="mf-section">
           <p className="mf-section__label">Get help now</p>
+          {assets.doctorPortrait && (
+            <div className="mf-help-doctor">
+              <img src={assets.doctorPortrait} alt="" className="mf-help-doctor__img" aria-hidden="true" />
+              <p className="mf-help-doctor__note">For urgent medical concerns, contact a clinician directly — Medifi cannot give medical advice.</p>
+            </div>
+          )}
           <div className="mf-list">
             <a className="mf-contact" href="tel:111">
               <span className="mf-contact__icon mf-contact__icon--urgent"><Icon name="phone" size={20} /></span>
@@ -63,6 +87,13 @@
           </div>
         </div>
 
+        {assets.brand && (
+          <img
+            src={assets.brand}
+            alt="Medifi — always putting patients first"
+            className="mf-brand-lockup mf-brand-lockup--footer"
+          />
+        )}
         <p className="mf-disclaimer">Medifi does not give medical advice. For health concerns, contact your GP, 111, or 999 in an emergency.</p>
       </div>
     );

@@ -163,6 +163,17 @@
     return data.answer;
   }
 
+  async function chatAssistant(payload) {
+    const res = await fetchWithTimeout(apiBase() + "/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, 90000);
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || "Could not get a reply");
+    return data.answer;
+  }
+
   window.MedifiLLM = {
     apiBase,
     setApiBase,
@@ -172,5 +183,6 @@
     parseLetterImage,
     translateLetter,
     askQuestion,
+    chatAssistant,
   };
 })();

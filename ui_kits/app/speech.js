@@ -1,99 +1,122 @@
-/* Read letter summaries aloud using the browser speech API. */
+/* Read letter summaries aloud — streamed neural voice with prefetch + cache. */
 
 (function () {
-  const SPEECH_LANG = {
-    English: "en-GB",
-    Urdu: "ur-PK",
-    Bengali: "bn-BD",
-    Polish: "pl-PL",
-    Arabic: "ar-SA",
-    Somali: "so-SO",
-  };
-
+  let currentAudio = null;
   let onEndCallback = null;
+  const audioCache = new Map();
+  let prefetchKey = "";
+
+  function apiBase() {
+    if (window.MedifiLLM) return window.MedifiLLM.apiBase();
+    if (window.location.port === "3001" || window.location.hostname === "localhost") {
+      return window.location.origin;
+    }
+    return "http://localhost:3001";
+  }
 
   function supported() {
-    return typeof window !== "undefined" && "speechSynthesis" in window;
+    return typeof Audio !== "undefined";
   }
 
-  function loadVoices() {
-    return new Promise(function (resolve) {
-      if (!supported()) {
-        resolve([]);
-        return;
-      }
-      const existing = window.speechSynthesis.getVoices();
-      if (existing.length) {
-        resolve(existing);
-        return;
-      }
-      window.speechSynthesis.onvoiceschanged = function () {
-        resolve(window.speechSynthesis.getVoices());
-      };
-      window.setTimeout(function () {
-        resolve(window.speechSynthesis.getVoices());
-      }, 400);
-    });
+  function cacheKey(letter, language) {
+    return (letter && letter.id ? letter.id : "letter") + "::" + (language || "English");
   }
 
-  function pickVoice(voices, language) {
-    const code = SPEECH_LANG[language] || "en-GB";
-    const prefix = code.split("-")[0];
-    return voices.find(function (v) { return v.lang === code; })
-      || voices.find(function (v) { return v.lang.indexOf(prefix) === 0; })
-      || voices.find(function (v) { return v.lang.indexOf("en") === 0; })
-      || null;
+  function cleanup() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.removeAttribute("src");
+      currentAudio.load();
+      currentAudio = null;
+    }
+    onEndCallback = null;
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
   }
 
+  /** Shorter script = faster synthesis and quicker playback start. */
   function buildSpeakText(letter, view) {
     const v = view || letter;
-    const chunks = [];
-    if (v.headline) chunks.push(v.headline);
-    if (v.when) chunks.push(v.when);
-    if (v.summary) chunks.push(v.summary);
-
-    const alerts = (v.risks || []).filter(function (r) { return r.level !== "safe"; });
-    if (alerts.length) {
-      chunks.push("Please check the following.");
-      alerts.forEach(function (r) {
-        chunks.push((r.title || "Alert") + ". " + (r.text || ""));
-      });
-    }
-
-    if (v.checklist && v.checklist.length) {
-      chunks.push("What to do next.");
-      v.checklist.forEach(function (c) {
-        chunks.push(c.label + (c.meta ? ", " + c.meta : ""));
-      });
-    }
-
-    chunks.push("Always check your original NHS letter.");
-    return chunks.join(" ");
+    const parts = [];
+    if (v.headline) parts.push(v.headline);
+    if (v.summary) parts.push(v.summary);
+    const urgent = (v.risks || []).find(function (r) { return r.level === "risk"; })
+      || (v.risks || []).find(function (r) { return r.level === "caution"; });
+    if (urgent) parts.push((urgent.title || "Please note") + ". " + (urgent.text || ""));
+    return parts.join(" ").slice(0, 900);
   }
 
   function stop() {
-    if (!supported()) return;
-    window.speechSynthesis.cancel();
-    onEndCallback = null;
+    cleanup();
   }
 
   function isSpeaking() {
-    return supported() && window.speechSynthesis.speaking;
+    return Boolean(currentAudio && !currentAudio.paused && !currentAudio.ended)
+      || (typeof window !== "undefined" && window.speechSynthesis && window.speechSynthesis.speaking);
   }
 
-  async function speakLetter(letter, view, language, onEnd) {
-    if (!supported()) {
-      throw new Error("Read-aloud is not supported in this browser.");
-    }
-    stop();
+  function clearCache() {
+    audioCache.clear();
+    prefetchKey = "";
+  }
+
+  async function prepare(letter, view, language) {
+    const key = cacheKey(letter, language);
+    if (audioCache.has(key)) return audioCache.get(key);
+
     const text = buildSpeakText(letter, view);
-    const voices = await loadVoices();
+    const prep = await fetch(apiBase() + "/api/speak/prepare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text, language: language || "English" }),
+    });
+    const data = await prep.json().catch(function () { return {}; });
+    if (!prep.ok) throw new Error(data.error || "Could not prepare speech.");
+
+    const playUrl = apiBase() + data.url;
+    const entry = { key: key, playUrl: playUrl, ready: false };
+    audioCache.set(key, entry);
+
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.src = playUrl;
+    entry.audio = audio;
+
+    await new Promise(function (resolve) {
+      const done = function () { entry.ready = true; resolve(); };
+      audio.addEventListener("canplaythrough", done, { once: true });
+      audio.addEventListener("error", done, { once: true });
+      window.setTimeout(done, 8000);
+    });
+
+    return entry;
+  }
+
+  function prefetch(letter, view, language) {
+    const key = cacheKey(letter, language);
+    if (prefetchKey === key || audioCache.has(key)) return;
+    prefetchKey = key;
+    prepare(letter, view, language).catch(function () {
+      if (prefetchKey === key) prefetchKey = "";
+    });
+  }
+
+  function speakWithBrowser(text, language, onEnd) {
+    if (!window.speechSynthesis) {
+      throw new Error("Speech is not supported in this browser.");
+    }
+    const SPEECH_LANG = {
+      English: "en-GB",
+      Urdu: "ur-PK",
+      Bengali: "bn-BD",
+      Polish: "pl-PL",
+      Arabic: "ar-SA",
+      Somali: "so-SO",
+    };
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = SPEECH_LANG[language] || "en-GB";
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    const voice = pickVoice(voices, language);
-    if (voice) utterance.voice = voice;
+    utterance.rate = 0.95;
     onEndCallback = onEnd || null;
     utterance.onend = function () {
       if (onEndCallback) onEndCallback();
@@ -106,10 +129,48 @@
     window.speechSynthesis.speak(utterance);
   }
 
+  async function speakLetter(letter, view, language, onEnd) {
+    if (!supported()) {
+      throw new Error("Read-aloud is not supported in this browser.");
+    }
+    stop();
+    const key = cacheKey(letter, language);
+    const text = buildSpeakText(letter, view);
+
+    try {
+      let entry = audioCache.get(key);
+      if (!entry) {
+        entry = await prepare(letter, view, language);
+      }
+
+      currentAudio = new Audio(entry.playUrl);
+      currentAudio.preload = "auto";
+      onEndCallback = onEnd || null;
+      currentAudio.onended = function () {
+        const cb = onEndCallback;
+        cleanup();
+        if (cb) cb();
+      };
+      currentAudio.onerror = function () {
+        const cb = onEndCallback;
+        cleanup();
+        if (cb) cb();
+      };
+
+      await currentAudio.play();
+      return;
+    } catch (serverErr) {
+      console.warn("Neural TTS failed, falling back to browser voice:", serverErr.message);
+      speakWithBrowser(text, language, onEnd);
+    }
+  }
+
   window.MedifiSpeech = {
     supported,
     buildSpeakText,
     speakLetter,
+    prefetch,
+    clearCache,
     stop,
     isSpeaking,
   };

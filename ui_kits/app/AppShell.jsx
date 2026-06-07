@@ -5,12 +5,14 @@
   const Icon = window.Icon;
   const Cal = window.MedifiCal;
 
-  const MAIN_SCREENS = ["home", "letters", "checkin", "help", "account"];
+  const MAIN_SCREENS = ["home", "letters", "help", "account"];
+
+  const LOGO_SRC = "../../assets/medifi-logo.png";
 
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <img src="../../assets/medifi-cat.svg" alt="Medifi" className="mf-header__logo-img" />
+        <img src={LOGO_SRC} alt="Medifi" className="mf-header__logo-img" />
       </button>
     );
   }
@@ -19,7 +21,6 @@
     const items = [
       { id: "home", label: "Home" },
       { id: "letters", label: "Letters" },
-      { id: "checkin", label: "Check In" },
       { id: "help", label: "Help" },
       { id: "account", label: "Account" },
     ];
@@ -39,21 +40,18 @@
     );
   }
 
-  function Header({ screen, title, onHome, onBack, onNav, onAccount, onUpdates, unread, avatarInitial }) {
+  function Header({ screen, title, onHome, onBack, onNav, onAccount, onUpdates, unread, avatarInitial, wideLayout }) {
     const isSub = !MAIN_SCREENS.includes(screen);
     return (
-      <header className={"mf-header" + (isSub ? " mf-header--sub" : "")}>
+      <header className={"mf-header" + (isSub ? " mf-header--sub" : "") + (wideLayout ? " mf-header--wide" : "")}>
         <div className="mf-header__inner">
-          {isSub ? (
+          <Logo onClick={onHome} />
+          {isSub && (
             <button type="button" className="mf-iconbtn" aria-label="Back" onClick={onBack}>
               <Icon name="chevronLeft" size={24} />
             </button>
-          ) : (
-            <Logo onClick={onHome} />
           )}
-
           {!isSub && <HeaderNav screen={screen} onNav={onNav} />}
-
           {isSub && <span className="mf-header__title">{title}</span>}
 
           <div className="mf-header__right">
@@ -95,7 +93,6 @@
       <nav className="mf-nav" aria-label="Mobile navigation">
         {item("home", "home", "Home")}
         {item("letters", "file", "Letters")}
-        {item("checkin", "help", "Check In")}
         {item("help", "help", "Help")}
         {item("account", "id", "Account")}
       </nav>
@@ -175,15 +172,44 @@
     const [processingMsg, setProcessingMsg] = React.useState("");
     const [processingSub, setProcessingSub] = React.useState("");
     const [lettersVersion, setLettersVersion] = React.useState(0);
+    const [chatOpen, setChatOpen] = React.useState(false);
+    const [wideScreen, setWideScreen] = React.useState(function () {
+      return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+    });
+
+    React.useEffect(function () {
+      const mq = window.matchMedia("(min-width: 1024px)");
+      function onChange(e) { setWideScreen(e.matches); }
+      mq.addEventListener("change", onChange);
+      return function () { mq.removeEventListener("change", onChange); };
+    }, []);
+
+    function runEmailSync() {
+      if (!window.MedifiInboxSync) return;
+      window.MedifiInboxSync.syncInbox({
+        onSaved: function () {
+          setLettersVersion(function (v) { return v + 1; });
+        },
+        onComplete: function (result) {
+          if (result && result.imported > 0) {
+            flash(result.imported === 1
+              ? "1 new NHS letter arrived from your email."
+              : result.imported + " new NHS letters arrived from your email.");
+          }
+        },
+      });
+    }
 
     React.useEffect(function () {
       if (!window.MedifiAuth || !window.MedifiAuth.firebaseReady()) {
         setPatient(window.MedifiPatient ? window.MedifiPatient.load() : null);
         setScreen(window.MedifiPatient && window.MedifiPatient.isRegistered() ? "home" : "signup");
         setBooting(false);
+        runEmailSync();
         return;
       }
       window.MedifiAuth.bootstrap().then(function (data) {
+        if (data.error) flash(data.error);
         if (data.user) {
           setPatient(data.user);
           setScreen("home");
@@ -193,7 +219,13 @@
         }
         setLettersVersion(function (v) { return v + 1; });
         setBooting(false);
+        runEmailSync();
       });
+    }, []);
+
+    React.useEffect(function () {
+      const id = window.setInterval(runEmailSync, 5000);
+      return function () { window.clearInterval(id); };
     }, []);
 
     const allLetters = React.useMemo(function () {
@@ -223,7 +255,6 @@
       scan: "Scan a letter",
       result: letter ? letter.sender : "",
       letters: "Your letters",
-      checkin: "Check in",
       help: "Help & support",
       account: "Account",
       health: "Health profile",
@@ -317,9 +348,11 @@
     function calDone(msg) { setCalOpen(false); flash(msg); }
 
     const showMobileNav = !booting && !processing && MAIN_SCREENS.includes(screen);
+    const showChat = !booting && !processing && screen !== "signup";
+    const sidebarChat = showChat && wideScreen;
 
     return (
-      <div className="mf-app">
+      <div className={"mf-app" + (sidebarChat ? " mf-app--sidebar" : "")}>
         <Header
           screen={screen}
           title={titles[screen]}
@@ -330,65 +363,90 @@
           onUpdates={() => setScreen("updates")}
           unread={unread}
           avatarInitial={avatarInitial}
+          wideLayout={sidebarChat}
         />
-        <main className="mf-body">
-          {booting ? (
-            <div className="mf-processing">
-              <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
-              <p className="mf-processing__t">Loading your account…</p>
+        <div className="mf-shell">
+          <div className="mf-main-column">
+            <div className="mf-layout">
+              <main className="mf-body">
+            {booting ? (
+              <div className="mf-processing">
+                <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
+                <p className="mf-processing__t">Loading your account…</p>
+              </div>
+            ) : processing ? <Processing message={processingMsg} sub={processingSub} /> : (
+              <React.Fragment>
+                {screen === "signup" && (
+                  <window.SignUpScreen
+                    isEdit={Boolean(
+                      patient && patient.registeredAt
+                      && window.MedifiAuth && window.MedifiAuth.getToken()
+                    )}
+                    onComplete={onSignupComplete}
+                  />
+                )}
+                {screen === "home" && (
+                  <window.HomeScreen
+                    letters={allLetters}
+                    patient={patient}
+                    onScan={() => setScreen("scan")}
+                    onOpen={open}
+                    onSeeAll={() => setScreen("letters")}
+                  />
+                )}
+                {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
+                {screen === "result" && letter && (
+                  <window.ResultScreen
+                    letter={letter}
+                    onAddReminders={() => openCal(letter)}
+                    onPlanRoute={openRoutes}
+                  />
+                )}
+                {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
+                {screen === "help" && <window.HelpScreen />}
+                {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
+                {screen === "account" && (
+                  <window.AccountScreen
+                    patient={patient}
+                    onOpenHealth={() => setScreen("health")}
+                    onEditProfile={() => setScreen("signup")}
+                    onGoSignup={() => setScreen("signup")}
+                    onSignOut={signOut}
+                    onEmailConnected={() => setLettersVersion(function (v) { return v + 1; })}
+                  />
+                )}
+                {screen === "health" && <window.HealthScreen onDone={() => setScreen("account")} />}
+              </React.Fragment>
+            )}
+              </main>
             </div>
-          ) : processing ? <Processing message={processingMsg} sub={processingSub} /> : (
-            <React.Fragment>
-              {screen === "signup" && (
-                <window.SignUpScreen
-                  isEdit={Boolean(
-                    patient && patient.registeredAt
-                    && window.MedifiAuth && window.MedifiAuth.getToken()
-                  )}
-                  onComplete={onSignupComplete}
-                />
-              )}
-              {screen === "home" && (
-                <window.HomeScreen
-                  letters={allLetters}
-                  patient={patient}
-                  onScan={() => setScreen("scan")}
-                  onOpen={open}
-                  onSeeAll={() => setScreen("letters")}
-                />
-              )}
-              {screen === "scan" && <window.ScanScreen onAnalyze={analyze} />}
-              {screen === "result" && letter && (
-                <window.ResultScreen
-                  letter={letter}
-                  onAddReminders={() => openCal(letter)}
-                  onPlanRoute={openRoutes}
-                />
-              )}
-              {screen === "checkin" && <window.CheckInScreen />}
-              {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
-              {screen === "help" && <window.HelpScreen />}
-              {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
-              {screen === "account" && (
-                <window.AccountScreen
-                  patient={patient}
-                  onOpenHealth={() => setScreen("health")}
-                  onEditProfile={() => setScreen("signup")}
-                  onSignOut={signOut}
-                />
-              )}
-              {screen === "health" && <window.HealthScreen onDone={() => setScreen("account")} />}
-            </React.Fragment>
-          )}
-        </main>
-        {!processing && screen === "result" && (
-          <div className="mf-actionbar">
-            <Button variant="primary" size="lg" fullWidth iconLeft={<Icon name="calendar" size={20} />} onClick={() => openCal(letter)}>
-              {letter && letter.medicines && !letter.event ? "Set medicine reminders" : "Add to my calendar"}
-            </Button>
+            {!processing && screen === "result" && (
+              <div className="mf-actionbar">
+                <Button variant="primary" size="lg" fullWidth iconLeft={<Icon name="calendar" size={20} />} onClick={() => openCal(letter)}>
+                  {letter && letter.medicines && !letter.event ? "Set medicine reminders" : "Add to my calendar"}
+                </Button>
+              </div>
+            )}
+            {showMobileNav && <BottomNav screen={screen} onNav={setScreen} />}
           </div>
+          {sidebarChat && window.ChatPanel && (
+            <window.ChatPanel
+              docked
+              letters={allLetters}
+              currentLetter={letter}
+              patient={patient}
+            />
+          )}
+        </div>
+        {showChat && !wideScreen && window.ChatPanel && (
+          <window.ChatPanel
+            letters={allLetters}
+            currentLetter={letter}
+            patient={patient}
+            open={chatOpen}
+            onToggle={() => setChatOpen(function (v) { return !v; })}
+          />
         )}
-        {showMobileNav && <BottomNav screen={screen} onNav={setScreen} />}
         {calOpen && calItem && <CalendarSheet letter={calItem} onClose={() => setCalOpen(false)} onDone={calDone} />}
         {routeOpen && letter && window.MedifiRoutes.venueForLetter(letter) && (
           <window.TransportSheet letter={letter} onClose={() => setRouteOpen(false)} />

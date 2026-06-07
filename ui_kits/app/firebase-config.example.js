@@ -1,6 +1,8 @@
 /* Firebase web config — copy to firebase-config.js and fill in from
  * Firebase Console → Project settings → Your apps → Web app.
- * Enable Email/Password under Authentication → Sign-in method.
+ * Enable Email/Password and Google under Authentication → Sign-in method.
+ * For Google redirect, add your app URL (e.g. http://localhost:3001) under
+ * Authentication → Settings → Authorized domains.
  * Create a Firestore database (test mode is fine for hackathons). */
 
 window.MEDIFI_FIREBASE = {

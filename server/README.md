@@ -21,5 +21,7 @@ Copy `.env.example` to the repo root as `.env` and add your Anthropic API key fo
 - `POST /api/parse-letter-image` — photo → action plan
 - `POST /api/translate` — multilingual summary
 - `POST /api/ask` — Q&A about a letter
+- `POST /api/chat` — AI assistant (query saved letters or general health guide)
+- `POST /api/speak` — neural read-aloud audio (not browser Chrome TTS)
 - `POST /api/checkin` — `{ appointmentId, name? }`
 - `GET /api/checkins` — demo check-in list (in-memory)
