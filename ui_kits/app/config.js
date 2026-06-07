@@ -3,4 +3,4 @@
 // Set `window.MEDIFI_API_BASE` and/or `window.MEDIFI_API_KEY` here for testing.
 
 window.MEDIFI_API_BASE = window.MEDIFI_API_BASE || 'http://localhost:3000';
-window.MEDIFI_API_KEY = window.MEDIFI_API_KEY || 'YOUR_ANTHROPIC_API_KEY_HERE';
+window.MEDIFI_API_KEY = window.MEDIFI_API_KEY || '';
