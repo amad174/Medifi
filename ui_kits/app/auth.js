@@ -181,23 +181,20 @@
   var GMAIL_CONNECT_KEY = "medifi_gmail_connect";
   var PENDING_TTL_MS = 15 * 60 * 1000;
 
-  function isMobileAuth() {
+  function isMobileViewport() {
     try {
-      var ua = navigator.userAgent || "";
-      if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
-      if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) return true;
-    } catch (_) { /* ignore */ }
-    return false;
-  }
-
-  function isInAppBrowser() {
-    try {
-      var ua = navigator.userAgent || "";
-      return /FBAN|FBAV|Instagram|Line\//i.test(ua)
-        || (ua.indexOf("iPhone") >= 0 && ua.indexOf("Safari") < 0 && ua.indexOf("CriOS") < 0);
+      return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
     } catch (_) {
       return false;
     }
+  }
+
+  function isIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  }
+
+  function isInAppBrowser() {
+    return /FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent || "");
   }
 
   function assertGoogleSignInEnvironment() {
@@ -207,6 +204,22 @@
         + "Open medifi-seven.vercel.app in Safari or Chrome, then try again."
       );
     }
+  }
+
+  function isPopupRedirectFallback(err) {
+    var code = err && err.code ? err.code : "";
+    return code === "auth/popup-blocked"
+      || code === "auth/operation-not-supported-in-this-environment"
+      || code === "auth/cancelled-popup-request";
+  }
+
+  function notifyAuthChange(profile, meta) {
+    if (!profile) return;
+    try {
+      window.dispatchEvent(new CustomEvent("medifi-auth-changed", {
+        detail: { profile: profile, meta: meta || {} },
+      }));
+    } catch (_) { /* ignore */ }
   }
 
   function clearGoogleAuthPending() {
@@ -326,7 +339,7 @@
       var early = await f.firstAuthUserPromise;
       if (early) return early;
     }
-    return waitForAuthUser(isMobileAuth() ? 6000 : 4000);
+    return waitForAuthUser(isIOS() || isMobileViewport() ? 6000 : 4000);
   }
 
   function getToken() {
@@ -397,7 +410,7 @@
     if (options.gmail) {
       provider.addScope(GMAIL_SCOPE);
       provider.setCustomParameters({ prompt: "consent", access_type: "online" });
-    } else if (isMobileAuth()) {
+    } else if (isIOS() || isMobileViewport()) {
       provider.setCustomParameters({ prompt: "select_account", display: "touch" });
     } else {
       provider.setCustomParameters({ prompt: "select_account" });
@@ -413,9 +426,12 @@
     clearGoogleAuthPending();
     cleanAuthParamsFromUrl();
     try {
-      return await syncUserFromFirestore(firebaseUser);
+      var synced = await syncUserFromFirestore(firebaseUser);
+      notifyAuthChange(synced, { silent: true });
+      return synced;
     } catch (err) {
       console.warn("profile sync:", err);
+      notifyAuthChange(quickProfile, { silent: true, partial: true });
       return quickProfile;
     }
   }
@@ -529,36 +545,42 @@
     return true;
   }
 
-  function shouldUseRedirect() {
-    return isMobileAuth();
+  async function signInWithGoogleProvider(provider, opts) {
+    var f = fb();
+    var options = opts || {};
+
+    async function beginRedirect() {
+      if (ensureAuthReturnPath()) return null;
+      if (options.gmail) setGmailConnectPending(true);
+      else setGoogleAuthPending(true);
+      await f.auth.signInWithRedirect(provider);
+      return null;
+    }
+
+    try {
+      var result = await f.auth.signInWithPopup(provider);
+      if (!result || !result.user) throw new Error("Google sign-in was cancelled.");
+      return result;
+    } catch (err) {
+      var code = err && err.code ? err.code : "";
+      if (code === "auth/popup-closed-by-user") {
+        throw new Error(mapFirebaseError(err));
+      }
+      if (isPopupRedirectFallback(err)) {
+        return beginRedirect();
+      }
+      throw new Error(mapFirebaseError(err));
+    }
   }
 
   async function connectGmailInbox() {
     if (!firebaseReady()) {
       throw new Error("Firebase is not configured. Copy firebase-config.example.js to firebase-config.js.");
     }
-    var f = fb();
+    assertGoogleSignInEnvironment();
     var provider = googleProvider({ gmail: true });
-
-    var result;
-    if (shouldUseRedirect()) {
-      if (ensureAuthReturnPath()) return null;
-      setGmailConnectPending(true);
-      await f.auth.signInWithRedirect(provider);
-      return null;
-    }
-
-    try {
-      result = await f.auth.signInWithPopup(provider);
-    } catch (err) {
-      var code = err && err.code ? err.code : "";
-      if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
-        setGmailConnectPending(true);
-        await f.auth.signInWithRedirect(provider);
-        return null;
-      }
-      throw new Error(mapFirebaseError(err));
-    }
+    var result = await signInWithGoogleProvider(provider, { gmail: true });
+    if (!result) return null;
 
     var credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
     var config = await saveGmailInboxFromCredential(result.user, credential);
@@ -575,32 +597,10 @@
       throw new Error("Firebase is not configured. Copy firebase-config.example.js to firebase-config.js.");
     }
     assertGoogleSignInEnvironment();
-    var f = fb();
     var provider = googleProvider();
-
-    if (shouldUseRedirect()) {
-      if (ensureAuthReturnPath()) return null;
-      setGoogleAuthPending(true);
-      await f.auth.signInWithRedirect(provider);
-      return null;
-    }
-
-    try {
-      var result = await f.auth.signInWithPopup(provider);
-      if (!result || !result.user) throw new Error("Google sign-in was cancelled.");
-      return await finishGoogleSignIn(result.user);
-    } catch (err) {
-      var code = err && err.code ? err.code : "";
-      if (code === "auth/popup-closed-by-user") {
-        throw new Error(mapFirebaseError(err));
-      }
-      if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
-        setGoogleAuthPending(true);
-        await f.auth.signInWithRedirect(provider);
-        return null;
-      }
-      throw new Error(mapFirebaseError(err));
-    }
+    var result = await signInWithGoogleProvider(provider, {});
+    if (!result) return null;
+    return await finishGoogleSignIn(result.user);
   }
 
   async function bootstrap() {
@@ -641,7 +641,7 @@
         console.error("session hydrate:", err);
       }
     }
-    var authWait = hasAuthCallbackParams() ? (isMobileAuth() ? 8000 : 6000) : 3000;
+    var authWait = hasAuthCallbackParams() ? (isIOS() ? 8000 : 6000) : 3000;
     var user = await waitForAuthUser(authWait);
     if (!user) {
       clearGoogleAuthPending();
@@ -800,11 +800,46 @@
     return true;
   }
 
+  var authListenerHydrating = false;
+
+  function startAuthListener() {
+    if (!firebaseReady()) return;
+    var f = fb();
+    f.auth.onAuthStateChanged(function (firebaseUser) {
+      if (!firebaseUser) return;
+      if (cachedUser && cachedUser.id === firebaseUser.uid) {
+        notifyAuthChange(cachedUser, { silent: true, restored: true });
+        return;
+      }
+      if (authListenerHydrating) return;
+      authListenerHydrating = true;
+      hydrateFromFirebaseSession()
+        .then(function (profile) {
+          if (!profile) return;
+          var fromGoogle = firebaseUser.providerData && firebaseUser.providerData.some(function (p) {
+            return p && p.providerId === "google.com";
+          });
+          notifyAuthChange(profile, { fromGoogle: fromGoogle, silent: true, restored: true });
+        })
+        .catch(function (err) {
+          console.warn("auth listener:", err);
+        })
+        .finally(function () {
+          authListenerHydrating = false;
+        });
+    });
+    captureGoogleRedirect().catch(function (err) {
+      console.warn("redirect capture:", err);
+    });
+  }
+
   if (!firebaseReady()) {
     setActiveScope(null);
     if (window.MedifiEmailSettings) {
       hydrateEmailInbox(window.MedifiEmailSettings.loadLocal());
     }
+  } else {
+    startAuthListener();
   }
 
   window.MedifiAuth = {

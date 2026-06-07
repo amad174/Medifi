@@ -271,6 +271,28 @@
     }, []);
 
     React.useEffect(function () {
+      function onAuthChanged(e) {
+        var detail = e.detail || {};
+        var profile = detail.profile;
+        var meta = detail.meta || {};
+        if (!profile) return;
+        setPatient(profile);
+        setAuthed(true);
+        setScreen("home");
+        setBooting(false);
+        setLettersVersion(function (v) { return v + 1; });
+        runEmailSync();
+        if (meta.fromGoogle && !meta.silent) {
+          flash("Welcome, " + (window.MedifiPatient
+            ? window.MedifiPatient.firstName(profile.name)
+            : "there") + "!");
+        }
+      }
+      window.addEventListener("medifi-auth-changed", onAuthChanged);
+      return function () { window.removeEventListener("medifi-auth-changed", onAuthChanged); };
+    }, []);
+
+    React.useEffect(function () {
       function finishBoot(user, loggedIn) {
         setAuthed(loggedIn);
         setPatient(user || (window.MedifiPatient ? window.MedifiPatient.load() : null));
@@ -326,34 +348,6 @@
         finishBoot(window.MedifiPatient ? window.MedifiPatient.load() : null, false);
       });
     }, []);
-
-    React.useEffect(function () {
-      if (booting || authed) return;
-      if (!window.MedifiFirebase || !window.MedifiFirebase.ready || !window.MedifiAuth) return;
-      var auth = window.MedifiFirebase.auth;
-      var settled = false;
-      var unsub = auth.onAuthStateChanged(function (firebaseUser) {
-        if (!firebaseUser || settled || authed) return;
-        if (window.MedifiAuth.getUser && window.MedifiAuth.getUser()) return;
-        settled = true;
-        var hydrate = window.MedifiAuth.hydrateFromFirebaseSession
-          ? window.MedifiAuth.hydrateFromFirebaseSession()
-          : window.MedifiAuth.bootstrap().then(function (data) { return data.user; });
-        Promise.resolve(hydrate).then(function (profile) {
-          if (!profile) return;
-          setPatient(profile);
-          setAuthed(true);
-          setScreen("home");
-          setBooting(false);
-          setLettersVersion(function (v) { return v + 1; });
-          runEmailSync();
-          flash("Welcome, " + (window.MedifiPatient
-            ? window.MedifiPatient.firstName(profile.name)
-            : "there") + "!");
-        });
-      });
-      return function () { unsub(); };
-    }, [booting, authed]);
 
     React.useEffect(function () {
       if (!authed) return;
