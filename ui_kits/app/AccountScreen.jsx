@@ -149,7 +149,6 @@
         var user = await Auth.loginWithGoogle();
         if (user && onAuthSuccess) {
           onAuthSuccess(user);
-          setGoogleBusy(false);
           return;
         }
         if (!user) {
@@ -157,6 +156,7 @@
         }
       } catch (err) {
         setGoogleError(err.message || "Could not sign in with Google.");
+      } finally {
         setGoogleBusy(false);
       }
     }

@@ -102,9 +102,9 @@
           onComplete(user);
           return;
         }
-        setSubmitting(true);
       } catch (err) {
         setError(err.message || "Could not sign in with Google.");
+      } finally {
         setSubmitting(false);
       }
     }

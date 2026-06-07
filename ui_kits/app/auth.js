@@ -309,7 +309,22 @@
     return captureGoogleRedirect();
   }
 
+  var APP_AUTH_PATH = "/ui_kits/app/index.html";
+
+  function isLocalDev() {
+    var host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1";
+  }
+
+  function ensureAuthReturnPath() {
+    var path = window.location.pathname || "";
+    if (path === APP_AUTH_PATH || path.endsWith(APP_AUTH_PATH)) return false;
+    window.location.replace(APP_AUTH_PATH + window.location.search + window.location.hash);
+    return true;
+  }
+
   function shouldUseRedirect() {
+    if (!isLocalDev()) return true;
     try {
       var ua = navigator.userAgent || "";
       if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
@@ -327,6 +342,7 @@
 
     var result;
     if (shouldUseRedirect()) {
+      if (ensureAuthReturnPath()) return null;
       try {
         sessionStorage.setItem("medifi_gmail_connect", "1");
       } catch (_) { /* ignore */ }
@@ -366,6 +382,7 @@
     var provider = googleProvider();
 
     if (shouldUseRedirect()) {
+      if (ensureAuthReturnPath()) return null;
       await f.auth.signInWithRedirect(provider);
       return null;
     }
