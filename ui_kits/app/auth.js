@@ -176,7 +176,45 @@
     return { profile: profile, letters: letters, health: health, emailInbox: emailInbox };
   }
 
-  function waitForAuthUser() {
+  var GOOGLE_AUTH_PENDING_KEY = "medifi_google_auth_pending";
+
+  function isGoogleAuthPending() {
+    try {
+      return sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function setGoogleAuthPending(on) {
+    try {
+      if (on) sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
+      else sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
+    } catch (_) { /* ignore */ }
+  }
+
+  function hasAuthCallbackParams() {
+    try {
+      var search = window.location.search || "";
+      var hash = window.location.hash || "";
+      return /(^|[?&])(apiKey|authType)=/.test(search)
+        || /access_token=|id_token=/.test(hash);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function cleanAuthParamsFromUrl() {
+    try {
+      if (!hasAuthCallbackParams()) return;
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function waitForAuthUser(maxWaitMs) {
+    var timeout = typeof maxWaitMs === "number" ? maxWaitMs : 4000;
     var f = fb();
     if (f.auth.currentUser) return Promise.resolve(f.auth.currentUser);
     return new Promise(function (resolve) {
@@ -190,7 +228,7 @@
       var unsub = f.auth.onAuthStateChanged(function (user) {
         if (user) finish(user);
       });
-      window.setTimeout(function () { finish(f.auth.currentUser); }, 2500);
+      window.setTimeout(function () { finish(f.auth.currentUser); }, timeout);
     });
   }
 
@@ -277,9 +315,20 @@
   function captureGoogleRedirect() {
     if (!firebaseReady()) return Promise.resolve(null);
     if (googleRedirectPromise) return googleRedirectPromise;
-    googleRedirectPromise = fb().auth.getRedirectResult()
-      .then(async function (result) {
-        if (!result || !result.user) return null;
+    googleRedirectPromise = (async function () {
+      var pending = isGoogleAuthPending();
+      var result;
+      try {
+        result = await fb().auth.getRedirectResult();
+      } catch (err) {
+        setGoogleAuthPending(false);
+        console.error("google redirect:", err);
+        throw new Error(mapFirebaseError(err));
+      }
+
+      if (result && result.user) {
+        setGoogleAuthPending(false);
+        cleanAuthParamsFromUrl();
 
         var gmailPending = false;
         try {
@@ -294,13 +343,28 @@
           return { type: "gmail", profile: profile, inbox: inbox };
         }
 
-        var user = await finishGoogleSignIn(result.user);
-        return { type: "auth", profile: user };
-      })
-      .catch(function (err) {
-        console.error("google redirect:", err);
-        throw new Error(mapFirebaseError(err));
-      });
+        var signedIn = await finishGoogleSignIn(result.user);
+        return { type: "auth", profile: signedIn };
+      }
+
+      var gmailStillPending = false;
+      try {
+        gmailStillPending = sessionStorage.getItem("medifi_gmail_connect") === "1";
+      } catch (_) { /* ignore */ }
+
+      if (pending && !gmailStillPending) {
+        var restored = await waitForAuthUser(12000);
+        if (restored) {
+          setGoogleAuthPending(false);
+          cleanAuthParamsFromUrl();
+          var profile = await finishGoogleSignIn(restored);
+          return { type: "auth", profile: profile };
+        }
+        setGoogleAuthPending(false);
+      }
+
+      return null;
+    })();
     return googleRedirectPromise;
   }
 
@@ -383,6 +447,7 @@
 
     if (shouldUseRedirect()) {
       if (ensureAuthReturnPath()) return null;
+      setGoogleAuthPending(true);
       await f.auth.signInWithRedirect(provider);
       return null;
     }
@@ -397,6 +462,7 @@
         throw new Error(mapFirebaseError(err));
       }
       if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
+        setGoogleAuthPending(true);
         await f.auth.signInWithRedirect(provider);
         return null;
       }
@@ -411,6 +477,7 @@
       hydrateEmailInbox(null);
       return { user: null };
     }
+    var expectingGoogleReturn = hasAuthCallbackParams() || isGoogleAuthPending();
     try {
       var redirectOutcome = await completeGoogleRedirect();
       if (redirectOutcome && redirectOutcome.profile) {
@@ -423,7 +490,8 @@
     } catch (err) {
       return { user: null, error: err.message };
     }
-    var user = await waitForAuthUser();
+    var authWait = hasAuthCallbackParams() || isGoogleAuthPending() ? 12000 : 4000;
+    var user = await waitForAuthUser(authWait);
     if (!user) {
       cachedUser = null;
       setActiveScope(null);
@@ -441,7 +509,14 @@
         return { user: null };
       }
       hydrate(data.profile, data.letters, data.health);
-      return { user: data.profile, letters: data.letters, health: data.health };
+      return {
+        user: data.profile,
+        letters: data.letters,
+        health: data.health,
+        fromGoogle: expectingGoogleReturn && user.providerData && user.providerData.some(function (p) {
+          return p && p.providerId === "google.com";
+        }),
+      };
     } catch (err) {
       console.error("bootstrap:", err);
       cachedUser = null;
@@ -589,8 +664,6 @@
     if (window.MedifiEmailSettings) {
       hydrateEmailInbox(window.MedifiEmailSettings.loadLocal());
     }
-  } else {
-    captureGoogleRedirect();
   }
 
   window.MedifiAuth = {

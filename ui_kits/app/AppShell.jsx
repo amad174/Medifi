@@ -12,6 +12,9 @@
   const LOGO_SRC = (window.MEDIFI_ASSETS && window.MEDIFI_ASSETS.logo) || "../../assets/medifi-logo.png";
 
   function isAuthenticated() {
+    if (window.MedifiAuth && window.MedifiAuth.firebaseReady && window.MedifiAuth.firebaseReady()) {
+      return Boolean(window.MedifiAuth.getToken && window.MedifiAuth.getToken());
+    }
     if (window.MedifiAuth && window.MedifiAuth.getToken && window.MedifiAuth.getToken()) return true;
     if (window.MedifiPatient && window.MedifiPatient.isRegistered && window.MedifiPatient.isRegistered()) {
       return true;
@@ -296,7 +299,16 @@
             flash("Gmail connected — checking for NHS letters.");
           }
         } else {
-          finishBoot(window.MedifiPatient ? window.MedifiPatient.load() : null, isAuthenticated());
+          var loggedIn = isAuthenticated();
+          if (!loggedIn && window.MedifiAuth && window.MedifiAuth.getUser && window.MedifiAuth.getUser()) {
+            loggedIn = true;
+          }
+          finishBoot(
+            (loggedIn && window.MedifiAuth && window.MedifiAuth.getUser)
+              ? window.MedifiAuth.getUser()
+              : (window.MedifiPatient ? window.MedifiPatient.load() : null),
+            loggedIn
+          );
         }
       });
     }, []);
