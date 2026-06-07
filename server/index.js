@@ -406,11 +406,15 @@ app.post("/api/ask", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Medifi server  http://localhost:${PORT}`);
-  console.log(`App            http://localhost:${PORT}/ui_kits/app/index.html`);
-  console.log(`LLM            ${hasLlmKey() ? PROVIDER + " ready" : "NO KEY — copy .env.example to .env"}`);
-  console.log(`Auth & data    Firebase (client-side — see firebase-config.example.js)`);
-  console.log(`Read-aloud     ${ttsProviderLabel(TTS_PROVIDER, OPENAI_KEY)} (not Chrome TTS)`);
-  console.log(`NHS email      users connect inbox in Account (subject ${process.env.EMAIL_SUBJECT_FILTER || "NHSINFORMATION"})`);
-});
+export default app;
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Medifi server  http://localhost:${PORT}`);
+    console.log(`App            http://localhost:${PORT}/ui_kits/app/index.html`);
+    console.log(`LLM            ${hasLlmKey() ? PROVIDER + " ready" : "NO KEY — copy .env.example to .env"}`);
+    console.log(`Auth & data    Firebase (client-side — see firebase-config.example.js)`);
+    console.log(`Read-aloud     ${ttsProviderLabel(TTS_PROVIDER, OPENAI_KEY)} (not Chrome TTS)`);
+    console.log(`NHS email      users connect inbox in Account (subject ${process.env.EMAIL_SUBJECT_FILTER || "NHSINFORMATION"})`);
+  });
+}
