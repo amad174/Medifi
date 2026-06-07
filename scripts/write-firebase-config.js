@@ -4,7 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const out = path.join(__dirname, "..", "ui_kits", "app", "firebase-config.js");
+/* Not gitignored — Vercel excludes ignored files even when generated at build time. */
+const out = path.join(__dirname, "..", "ui_kits", "app", "firebase-config.generated.js");
 
 const cfg = {
   apiKey: process.env.FIREBASE_API_KEY,
@@ -17,6 +18,10 @@ const cfg = {
 
 const missing = Object.entries(cfg).filter(([, v]) => !v).map(([k]) => k);
 if (missing.length) {
+  if (process.env.VERCEL) {
+    console.error("write-firebase-config: missing on Vercel:", missing.join(", "));
+    process.exit(1);
+  }
   console.log("write-firebase-config: skipped (missing env:", missing.join(", "), ")");
   process.exit(0);
 }
