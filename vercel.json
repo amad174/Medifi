@@ -17,10 +17,16 @@
     { "src": "_ds_bundle.js", "use": "@vercel/static" },
     { "src": "_ds_fallback.js", "use": "@vercel/static" }
   ],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/ui_kits/app/index.html",
+      "permanent": false
+    }
+  ],
   "routes": [
     { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "api/[...path].js" },
-    { "src": "/", "dest": "/ui_kits/app/index.html" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }
