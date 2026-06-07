@@ -5,5 +5,13 @@
   "scripts": {
     "start": "cd server && npm start",
     "dev": "cd server && npm run dev"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "imapflow": "^1.0.193",
+    "mailparser": "^3.7.4",
+    "msedge-tts": "^2.0.5",
+    "pdf-parse": "^1.1.1"
   }
 }
