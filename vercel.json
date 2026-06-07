@@ -1,0 +1,17 @@
+{
+  "installCommand": "cd server && npm install",
+  "buildCommand": "node scripts/write-firebase-config.js",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/ui_kits/app/index.html",
+      "permanent": false
+    }
+  ],
+  "functions": {
+    "server.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}

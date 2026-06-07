@@ -1,0 +1,9 @@
+{
+  "name": "medifi",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev"
+  }
+}
