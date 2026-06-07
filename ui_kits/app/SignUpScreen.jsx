@@ -85,6 +85,21 @@
       return "";
     }
 
+    async function signInWithGoogle() {
+      if (!Auth || !Auth.firebaseReady()) {
+        setError("Firebase is not configured. Copy firebase-config.example.js to firebase-config.js.");
+        return;
+      }
+      setSubmitting(true);
+      setError("");
+      try {
+        await Auth.loginWithGoogle();
+      } catch (err) {
+        setError(err.message || "Could not start Google sign-in.");
+        setSubmitting(false);
+      }
+    }
+
     async function submit() {
       const msg = validate();
       if (msg) {
@@ -127,6 +142,13 @@
     return (
       <div className="mf-screen mf-screen--signup">
         <div className="mf-signup-hero">
+          {window.MEDIFI_ASSETS && window.MEDIFI_ASSETS.brand && !isEdit && (
+            <img
+              src={window.MEDIFI_ASSETS.brand}
+              alt="Medifi — always putting patients first"
+              className="mf-brand-lockup mf-brand-lockup--signup"
+            />
+          )}
           <Eyebrow tone="accent">{isEdit ? "Your profile" : mode === "login" ? "Welcome back" : "Welcome to Medifi"}</Eyebrow>
           <h1 className="mf-signup-hero__h">
             {isEdit ? "Update your details" : mode === "login" ? "Sign in" : "Create your account"}
@@ -139,6 +161,21 @@
                 : "A few details help Medifi tailor letter summaries and health tips for you."}
           </p>
         </div>
+
+        {!isEdit && (
+          <div className="mf-google-auth">
+            <Button
+              variant="secondary"
+              size="lg"
+              fullWidth
+              disabled={submitting}
+              onClick={signInWithGoogle}
+            >
+              Sign in with Google
+            </Button>
+            <p className="mf-google-auth__or">or use your email</p>
+          </div>
+        )}
 
         {!isEdit && (
           <div className="mf-signup-toggle">

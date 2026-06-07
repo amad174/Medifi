@@ -5,11 +5,20 @@
   const Icon = window.Icon;
   const TONE = { safe: "safe", caution: "caution", risk: "risk", brand: "brand", neutral: "neutral" };
 
+  const UPDATE_PHOTOS = {
+    u1: function () { return window.MEDIFI_ASSETS && window.MEDIFI_ASSETS.doctorFriendly; },
+  };
+
   function UpdateCard({ u, onCal }) {
+    const photo = UPDATE_PHOTOS[u.id] ? UPDATE_PHOTOS[u.id]() : null;
     return (
       <div className={"mf-update" + (u.unread ? " mf-update--unread" : "")}>
         <div className="mf-update__head">
-          <span className="mf-update__avatar">{u.initial}</span>
+          {photo ? (
+            <img src={photo} alt="" className="mf-update__avatar mf-update__avatar--photo" />
+          ) : (
+            <span className="mf-update__avatar">{u.initial}</span>
+          )}
           <span className="mf-update__who">
             <span className="mf-update__from">{u.from}{u.unread && <span className="mf-update__dot" aria-label="Unread"></span>}</span>
             <span className="mf-update__role">{u.role} · {u.time}</span>
@@ -32,8 +41,22 @@
   }
 
   function UpdatesScreen({ onCal }) {
+    const assets = window.MEDIFI_ASSETS || {};
     return (
       <div className="mf-screen mf-updates">
+        <div className="mf-updates-hero">
+          {assets.brand && (
+            <img
+              src={assets.brand}
+              alt="Medifi — always putting patients first"
+              className="mf-brand-lockup mf-brand-lockup--updates"
+            />
+          )}
+          {assets.nhsTeam && (
+            <img src={assets.nhsTeam} alt="Your NHS care team" className="mf-updates-hero__img" />
+          )}
+          <p className="mf-updates-hero__caption">Messages from your GP, hospital, and pharmacy</p>
+        </div>
         <div className="mf-updates__list">
           <div className="mf-trust">
             <Icon name="check" size={16} />

@@ -48,9 +48,11 @@
             </div>
           )}
 
+          {(venue.routes && venue.routes.length > 0) && (
           <p className="mf-section__label mf-route-section-label">Suggested routes</p>
+          )}
           <div className="mf-route-list">
-            {venue.routes.map((r) => (
+            {(venue.routes || []).map((r) => (
               <div key={r.id} className={"mf-route" + (best && best.id === r.id ? " mf-route--best" : "")}>
                 <span className="mf-route__icon"><Icon name={MODE_ICON[r.mode] || "pin"} size={20} /></span>
                 <div className="mf-route__main">
@@ -67,6 +69,10 @@
               </div>
             ))}
           </div>
+
+          {(!venue.routes || !venue.routes.length) && (
+            <p className="mf-route-arrival">Open Google Maps below for directions from your location.</p>
+          )}
 
           {venue.arrivalNote && (
             <p className="mf-route-arrival">{venue.arrivalNote}</p>

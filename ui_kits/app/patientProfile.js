@@ -1,7 +1,15 @@
 /* Patient profile — cached locally; source of truth when signed in is the database. */
 
 (function () {
-  var STORAGE_KEY = "medifi-patient-profile";
+  var LEGACY_STORAGE_KEY = "medifi-patient-profile";
+
+  function storageKey() {
+    if (window.MedifiUserScope) {
+      window.MedifiUserScope.migrateLegacy("patient");
+      return window.MedifiUserScope.key(window.MedifiUserScope.SUFFIXES.patient);
+    }
+    return LEGACY_STORAGE_KEY;
+  }
 
   var ETHNICITIES = [
     { id: "white", label: "White British, Irish or other White" },
@@ -76,7 +84,7 @@
 
   function load() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var raw = localStorage.getItem(storageKey());
       if (!raw) return defaultProfile();
       return Object.assign(defaultProfile(), JSON.parse(raw));
     } catch (e) {
@@ -110,17 +118,17 @@
   }
 
   function save(profile) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    localStorage.setItem(storageKey(), JSON.stringify(profile));
     syncToHealth(profile);
   }
 
   function clear() {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey());
   }
 
   function hydrateLocal(profile) {
     if (!profile) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    localStorage.setItem(storageKey(), JSON.stringify(profile));
     syncToHealth(profile);
   }
 
@@ -148,7 +156,7 @@
   }
 
   window.MedifiPatient = {
-    STORAGE_KEY: STORAGE_KEY,
+    STORAGE_KEY: LEGACY_STORAGE_KEY,
     ETHNICITIES: ETHNICITIES,
     ACTIVITY: ACTIVITY,
     SMOKING: SMOKING,

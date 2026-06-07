@@ -26,14 +26,26 @@
     );
   }
 
-  function AccountScreen({ onOpenHealth, onEditProfile, onSignOut, patient }) {
+  function AccountScreen({ onOpenHealth, onEditProfile, onSignOut, onGoSignup, patient, onEmailConnected }) {
     const [prefs, setPrefs] = React.useState({ notify: true, calendar: true, carer: false, bigText: false });
     const [llm, setLlm] = React.useState(null);
     const [apiBase, setApiBase] = React.useState(() => LLM ? LLM.apiBase() : "");
     const [apiError, setApiError] = React.useState("");
+    const [emailAddr, setEmailAddr] = React.useState("");
+    const [emailPass, setEmailPass] = React.useState("");
+    const [emailHost, setEmailHost] = React.useState("");
+    const [emailBusy, setEmailBusy] = React.useState(false);
+    const [emailError, setEmailError] = React.useState("");
+    const [emailConnected, setEmailConnected] = React.useState(null);
+    const [googleBusy, setGoogleBusy] = React.useState(false);
+    const [googleError, setGoogleError] = React.useState("");
+    const Auth = window.MedifiAuth;
+    const signedIn = Auth && Auth.getToken && Auth.getToken();
     const t = (k) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
     const health = window.MedifiHealth && window.MedifiHealth.loadProfile();
     const score = health && health.lastScore;
+    const EmailCfg = window.MedifiEmailSettings;
+    const subjectFilter = EmailCfg ? EmailCfg.SUBJECT_FILTER : "NHSINFORMATION";
 
     React.useEffect(function () {
       if (!LLM) return;
@@ -41,6 +53,21 @@
         .then(setLlm)
         .catch(function () { setLlm({ ok: false, llm: false }); });
     }, [apiBase]);
+
+    React.useEffect(function () {
+      var inbox = window.MedifiAuth && window.MedifiAuth.getEmailInbox
+        ? window.MedifiAuth.getEmailInbox()
+        : (EmailCfg ? EmailCfg.loadLocal() : null);
+      if (!inbox) {
+        setEmailConnected(null);
+        if (patient && patient.email) setEmailAddr(patient.email);
+        return;
+      }
+      setEmailConnected(inbox);
+      setEmailAddr(inbox.email || "");
+      setEmailHost(inbox.imapHost || "");
+      setEmailPass("");
+    }, [patient]);
 
     function saveApiBase() {
       if (!LLM) return;
@@ -50,6 +77,81 @@
         LLM.health().then(setLlm).catch(function () { setLlm({ ok: false, llm: false }); });
       } catch (err) {
         setApiError(err.message);
+      }
+    }
+
+    function onEmailAddressChange(value) {
+      setEmailAddr(value);
+      if (EmailCfg) {
+        var guessed = EmailCfg.guessImapHost(value);
+        setEmailHost(guessed.host);
+      }
+    }
+
+    async function connectEmail() {
+      if (!EmailCfg) return;
+      setEmailError("");
+      setEmailBusy(true);
+      var guessed = EmailCfg.guessImapHost(emailAddr);
+      var config = {
+        email: emailAddr.trim(),
+        password: emailPass,
+        imapHost: (emailHost || guessed.host).trim(),
+        imapPort: guessed.port || 993,
+        subjectFilter: subjectFilter,
+      };
+      try {
+        var test = await EmailCfg.testConnection(config);
+        config.imapHost = test.imapHost || config.imapHost;
+        config.imapPort = test.imapPort || config.imapPort;
+        if (window.MedifiAuth && window.MedifiAuth.saveEmailInbox) {
+          await window.MedifiAuth.saveEmailInbox(config);
+        } else {
+          EmailCfg.saveLocal(config);
+        }
+        setEmailConnected(config);
+        setEmailPass("");
+        if (onEmailConnected) onEmailConnected(config);
+        if (window.MedifiInboxSync) {
+          window.MedifiInboxSync.syncInbox({ onSaved: onEmailConnected });
+        }
+      } catch (err) {
+        setEmailError(err.message || "Could not connect to your email");
+      } finally {
+        setEmailBusy(false);
+      }
+    }
+
+    async function signInWithGoogle() {
+      if (!Auth || !Auth.loginWithGoogle) {
+        setGoogleError("Firebase is not set up. Copy firebase-config.example.js to firebase-config.js.");
+        return;
+      }
+      setGoogleBusy(true);
+      setGoogleError("");
+      try {
+        await Auth.loginWithGoogle();
+      } catch (err) {
+        setGoogleError(err.message || "Could not start Google sign-in.");
+        setGoogleBusy(false);
+      }
+    }
+
+    async function disconnectEmail() {
+      setEmailBusy(true);
+      setEmailError("");
+      try {
+        if (window.MedifiAuth && window.MedifiAuth.disconnectEmailInbox) {
+          await window.MedifiAuth.disconnectEmailInbox();
+        } else if (EmailCfg) {
+          EmailCfg.clearLocal();
+        }
+        setEmailConnected(null);
+        setEmailPass("");
+      } catch (err) {
+        setEmailError(err.message || "Could not disconnect");
+      } finally {
+        setEmailBusy(false);
       }
     }
 
@@ -76,10 +178,30 @@
             <span className="mf-profile__name">{displayName}</span>
             <span className="mf-profile__sub">{displaySub}</span>
           </div>
-          <Badge tone={profile && profile.registeredAt ? "safe" : "caution"} dot>
-            {profile && profile.registeredAt ? "Signed up" : "Incomplete"}
+          <Badge tone={signedIn || (profile && profile.registeredAt) ? "safe" : "caution"} dot>
+            {signedIn ? "Signed in" : (profile && profile.registeredAt ? "Local only" : "Not signed in")}
           </Badge>
         </div>
+
+        {!signedIn && (
+          <div className="mf-section">
+            <p className="mf-section__label">Sign in</p>
+            <p className="mf-disclaimer" style={{ textAlign: "left", marginBottom: 12 }}>
+              Sign in with Google to save your letters and settings across devices.
+            </p>
+            <div className="mf-google-auth">
+              <Button variant="primary" size="lg" fullWidth disabled={googleBusy} onClick={signInWithGoogle}>
+                {googleBusy ? "Redirecting to Google…" : "Sign in with Google"}
+              </Button>
+              {onGoSignup && (
+                <Button variant="secondary" size="sm" fullWidth onClick={onGoSignup}>
+                  Or create account with email
+                </Button>
+              )}
+            </div>
+            {googleError && <span className="mf-img-preview__error">{googleError}</span>}
+          </div>
+        )}
 
         <div className="mf-section">
           <p className="mf-section__label">Your profile</p>
@@ -91,6 +213,64 @@
             </span>
             <Icon name="chevronRight" size={20} />
           </button>
+        </div>
+
+        <div className="mf-section">
+          <p className="mf-section__label">NHS email inbox</p>
+          <p className="mf-disclaimer" style={{ textAlign: "left", marginBottom: 12 }}>
+            Connect the inbox where you receive NHS letters. Medifi checks for new unread emails titled <strong>{subjectFilter}</strong> and adds them to Your Letters.
+          </p>
+          {emailConnected ? (
+            <div className="mf-card-list" style={{ marginBottom: 12 }}>
+              <SettingRow
+                icon="file"
+                title={emailConnected.email}
+                sub={
+                  (emailConnected.lastSync ? "Last checked " + new Date(emailConnected.lastSync).toLocaleString("en-GB") : "Connected")
+                  + " · " + (emailConnected.imapHost || "IMAP")
+                }
+                control={<Badge tone="safe" dot>On</Badge>}
+              />
+            </div>
+          ) : null}
+          <div className="mf-ask">
+            <Input
+              label="Email address"
+              type="email"
+              placeholder="you@gmail.com"
+              value={emailAddr}
+              onChange={(e) => onEmailAddressChange(e.target.value)}
+            />
+            <Input
+              label="Email password or app password"
+              type="password"
+              placeholder="Use a Gmail App Password if you have 2FA"
+              value={emailPass}
+              onChange={(e) => setEmailPass(e.target.value)}
+            />
+            <Input
+              label="IMAP server (optional)"
+              placeholder="imap.gmail.com"
+              value={emailHost}
+              onChange={(e) => setEmailHost(e.target.value)}
+            />
+            {emailError && <span className="mf-img-preview__error">{emailError}</span>}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={emailBusy || !emailAddr.trim() || !emailPass}
+                onClick={connectEmail}
+              >
+                {emailBusy ? "Connecting…" : (emailConnected ? "Update connection" : "Connect inbox")}
+              </Button>
+              {emailConnected && (
+                <Button variant="secondary" size="sm" disabled={emailBusy} onClick={disconnectEmail}>
+                  Disconnect
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="mf-section">

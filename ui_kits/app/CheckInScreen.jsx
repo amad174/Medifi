@@ -1,18 +1,6 @@
-/* Medifi — Check In screen: symptom chat via Anthropic API */
+/* Medifi — Check In screen: symptom chat via Medifi server /api/chat */
 (function () {
   const Icon = window.Icon;
-
-  const SYSTEM_PROMPT = `You are Medifi's health guide — a warm, knowledgeable, and honest health assistant built into an NHS support app.
-
-Your role:
-- Listen carefully to the patient's symptoms and concerns.
-- Give practical, clear, self-care advice first — most issues can be managed at home.
-- Only suggest seeing a GP when there are genuine red flag symptoms or the issue has persisted for an appropriate time.
-- NEVER catastrophise. Be reassuring and measured.
-- If something could be a genuine emergency (chest pain, difficulty breathing, stroke symptoms), clearly say call 999.
-- Keep responses concise — 3 to 5 sentences max unless the patient asks for more detail.
-- Do not diagnose. Frame everything as guidance, not diagnosis.
-- End each response with a gentle follow-up question to understand more if needed.`;
 
   function ChatBubble({ msg }) {
     const isUser = msg.role === "user";
@@ -68,31 +56,30 @@ Your role:
     async function send() {
       const text = input.trim();
       if (!text || loading) return;
+      if (!window.MedifiLLM) {
+        setError("AI is not available. Start the server with your API key in .env.");
+        return;
+      }
       setInput("");
       setError("");
-      const newMessages = [...messages, { role: "user", content: text }];
+      const prior = messages.slice(1);
+      const newMessages = messages.concat([{ role: "user", content: text }]);
       setMessages(newMessages);
       setLoading(true);
       try {
-        const res = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-   "Authorization": "Bearer sk-"
-  },
-  body: JSON.stringify({
-    model: "glm-4.5-air",
-    max_tokens: 1000,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...newMessages.map(m => ({ role: m.role, content: m.content }))
-    ]
-  })
-});
-if (!res.ok) throw new Error("Something went wrong. Please try again.");
-const data = await res.json();
-const reply = data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.";
-setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+        const health = window.MedifiHealth ? window.MedifiHealth.loadProfile() : null;
+        const patient = window.MedifiPatient ? window.MedifiPatient.load() : null;
+        const reply = await window.MedifiLLM.chatAssistant({
+          mode: "health",
+          question: text,
+          letters: [],
+          patient: patient,
+          health: health,
+          history: prior,
+        });
+        setMessages(function (prev) {
+          return prev.concat([{ role: "assistant", content: reply }]);
+        });
       } catch (err) {
         setError(err.message || "Network error. Please try again.");
       }

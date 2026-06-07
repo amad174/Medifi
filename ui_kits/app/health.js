@@ -2,7 +2,15 @@
  * Not medical advice. Demo logic only — production would use validated models. */
 
 (function () {
-  var STORAGE_KEY = "medifi-health-profile";
+  var LEGACY_STORAGE_KEY = "medifi-health-profile";
+
+  function storageKey() {
+    if (window.MedifiUserScope) {
+      window.MedifiUserScope.migrateLegacy("health");
+      return window.MedifiUserScope.key(window.MedifiUserScope.SUFFIXES.health);
+    }
+    return LEGACY_STORAGE_KEY;
+  }
 
   var ETHNICITIES = [
     { id: "white", label: "White British, Irish or other White" },
@@ -56,7 +64,7 @@
 
   function loadProfile() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var raw = localStorage.getItem(storageKey());
       if (!raw) return defaultProfile();
       return Object.assign(defaultProfile(), JSON.parse(raw));
     } catch (e) {
@@ -65,7 +73,7 @@
   }
 
   function saveProfile(profile) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    localStorage.setItem(storageKey(), JSON.stringify(profile));
     if (window.MedifiAuth && window.MedifiAuth.getToken()) {
       window.MedifiAuth.saveHealth(profile).catch(function () { /* offline */ });
     }
@@ -73,7 +81,13 @@
 
   function hydrateFromServer(health) {
     if (!health) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.assign(defaultProfile(), health)));
+    localStorage.setItem(storageKey(), JSON.stringify(Object.assign(defaultProfile(), health)));
+  }
+
+  function clearLocal() {
+    try {
+      localStorage.removeItem(storageKey());
+    } catch (_) { /* ignore */ }
   }
 
   function bmi(weightKg, heightCm) {
@@ -260,13 +274,14 @@
   }
 
   window.MedifiHealth = {
-    STORAGE_KEY: STORAGE_KEY,
+    STORAGE_KEY: LEGACY_STORAGE_KEY,
     ETHNICITIES: ETHNICITIES,
     ACTIVITY_LEVELS: ACTIVITY_LEVELS,
     DIET_PLANS: DIET_PLANS,
     loadProfile: loadProfile,
     saveProfile: saveProfile,
     hydrateFromServer: hydrateFromServer,
+    clearLocal: clearLocal,
     bmi: bmi,
     bmiLabel: bmiLabel,
     computeRiskScore: computeRiskScore,
