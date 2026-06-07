@@ -177,10 +177,56 @@
   }
 
   var GOOGLE_AUTH_PENDING_KEY = "medifi_google_auth_pending";
+  var GOOGLE_AUTH_PENDING_TS_KEY = "medifi_google_auth_pending_ts";
+  var GMAIL_CONNECT_KEY = "medifi_gmail_connect";
+  var PENDING_TTL_MS = 15 * 60 * 1000;
+
+  function isMobileAuth() {
+    try {
+      var ua = navigator.userAgent || "";
+      if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+      if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) return true;
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+
+  function isInAppBrowser() {
+    try {
+      var ua = navigator.userAgent || "";
+      return /FBAN|FBAV|Instagram|Line\//i.test(ua)
+        || (ua.indexOf("iPhone") >= 0 && ua.indexOf("Safari") < 0 && ua.indexOf("CriOS") < 0);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function assertGoogleSignInEnvironment() {
+    if (isInAppBrowser()) {
+      throw new Error(
+        "Google sign-in does not work inside this in-app browser. "
+        + "Open medifi-seven.vercel.app in Safari or Chrome, then try again."
+      );
+    }
+  }
+
+  function clearGoogleAuthPending() {
+    try {
+      sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
+      localStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
+      localStorage.removeItem(GOOGLE_AUTH_PENDING_TS_KEY);
+    } catch (_) { /* ignore */ }
+  }
 
   function isGoogleAuthPending() {
     try {
-      return sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1";
+      if (sessionStorage.getItem(GOOGLE_AUTH_PENDING_KEY) === "1") return true;
+      if (localStorage.getItem(GOOGLE_AUTH_PENDING_KEY) !== "1") return false;
+      var ts = parseInt(localStorage.getItem(GOOGLE_AUTH_PENDING_TS_KEY) || "0", 10);
+      if (!ts || Date.now() - ts > PENDING_TTL_MS) {
+        clearGoogleAuthPending();
+        return false;
+      }
+      return true;
     } catch (_) {
       return false;
     }
@@ -188,20 +234,51 @@
 
   function setGoogleAuthPending(on) {
     try {
-      if (on) sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
-      else sessionStorage.removeItem(GOOGLE_AUTH_PENDING_KEY);
+      if (on) {
+        sessionStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
+        localStorage.setItem(GOOGLE_AUTH_PENDING_KEY, "1");
+        localStorage.setItem(GOOGLE_AUTH_PENDING_TS_KEY, String(Date.now()));
+      } else {
+        clearGoogleAuthPending();
+      }
     } catch (_) { /* ignore */ }
+  }
+
+  function setGmailConnectPending(on) {
+    try {
+      if (on) {
+        sessionStorage.setItem(GMAIL_CONNECT_KEY, "1");
+        localStorage.setItem(GMAIL_CONNECT_KEY, "1");
+      } else {
+        sessionStorage.removeItem(GMAIL_CONNECT_KEY);
+        localStorage.removeItem(GMAIL_CONNECT_KEY);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function isGmailConnectPending() {
+    try {
+      return sessionStorage.getItem(GMAIL_CONNECT_KEY) === "1"
+        || localStorage.getItem(GMAIL_CONNECT_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
   }
 
   function hasAuthCallbackParams() {
     try {
       var search = window.location.search || "";
       var hash = window.location.hash || "";
-      return /(^|[?&])(apiKey|authType)=/.test(search)
+      return /(^|[?&])(apiKey|authType|mode)=/.test(search)
+        || /signInViaRedirect/i.test(search)
         || /access_token=|id_token=/.test(hash);
     } catch (_) {
       return false;
     }
+  }
+
+  function isExpectingOAuthReturn() {
+    return hasAuthCallbackParams() || isGoogleAuthPending();
   }
 
   function cleanAuthParamsFromUrl() {
@@ -230,6 +307,17 @@
       });
       window.setTimeout(function () { finish(f.auth.currentUser); }, timeout);
     });
+  }
+
+  async function waitForRedirectSession() {
+    var f = fb();
+    if (f.auth.currentUser) return f.auth.currentUser;
+    var timeout = isMobileAuth() ? 15000 : 12000;
+    if (f.firstAuthUserPromise) {
+      var early = await f.firstAuthUserPromise;
+      if (early) return early;
+    }
+    return waitForAuthUser(timeout);
   }
 
   function getToken() {
@@ -271,6 +359,8 @@
     if (options.gmail) {
       provider.addScope(GMAIL_SCOPE);
       provider.setCustomParameters({ prompt: "consent", access_type: "online" });
+    } else if (isMobileAuth()) {
+      provider.setCustomParameters({ prompt: "select_account", display: "touch" });
     } else {
       provider.setCustomParameters({ prompt: "select_account" });
     }
@@ -338,11 +428,8 @@
         setGoogleAuthPending(false);
         cleanAuthParamsFromUrl();
 
-        var gmailPending = false;
-        try {
-          gmailPending = sessionStorage.getItem("medifi_gmail_connect") === "1";
-          if (gmailPending) sessionStorage.removeItem("medifi_gmail_connect");
-        } catch (_) { /* ignore */ }
+        var gmailPending = isGmailConnectPending();
+        if (gmailPending) setGmailConnectPending(false);
 
         if (gmailPending) {
           var credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
@@ -355,13 +442,11 @@
         return { type: "auth", profile: signedIn };
       }
 
-      var gmailStillPending = false;
-      try {
-        gmailStillPending = sessionStorage.getItem("medifi_gmail_connect") === "1";
-      } catch (_) { /* ignore */ }
+      var gmailStillPending = isGmailConnectPending();
+      var expectingReturn = pending || isExpectingOAuthReturn();
 
-      if (pending && !gmailStillPending) {
-        var restored = await waitForAuthUser(12000);
+      if (expectingReturn && !gmailStillPending) {
+        var restored = await waitForRedirectSession();
         if (restored) {
           setGoogleAuthPending(false);
           cleanAuthParamsFromUrl();
@@ -396,12 +481,7 @@
   }
 
   function shouldUseRedirect() {
-    try {
-      var ua = navigator.userAgent || "";
-      if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
-      if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) return true;
-    } catch (_) { /* ignore */ }
-    return false;
+    return isMobileAuth();
   }
 
   async function connectGmailInbox() {
@@ -414,9 +494,7 @@
     var result;
     if (shouldUseRedirect()) {
       if (ensureAuthReturnPath()) return null;
-      try {
-        sessionStorage.setItem("medifi_gmail_connect", "1");
-      } catch (_) { /* ignore */ }
+      setGmailConnectPending(true);
       await f.auth.signInWithRedirect(provider);
       return null;
     }
@@ -426,9 +504,7 @@
     } catch (err) {
       var code = err && err.code ? err.code : "";
       if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
-        try {
-          sessionStorage.setItem("medifi_gmail_connect", "1");
-        } catch (_) { /* ignore */ }
+        setGmailConnectPending(true);
         await f.auth.signInWithRedirect(provider);
         return null;
       }
@@ -449,6 +525,7 @@
     if (!firebaseReady()) {
       throw new Error("Firebase is not configured. Copy firebase-config.example.js to firebase-config.js.");
     }
+    assertGoogleSignInEnvironment();
     var f = fb();
     var provider = googleProvider();
 
@@ -484,7 +561,7 @@
       hydrateEmailInbox(null);
       return { user: null };
     }
-    var expectingGoogleReturn = hasAuthCallbackParams() || isGoogleAuthPending();
+    var expectingGoogleReturn = isExpectingOAuthReturn();
     try {
       var redirectOutcome = await completeGoogleRedirect();
       if (redirectOutcome && redirectOutcome.profile) {
@@ -497,7 +574,7 @@
     } catch (err) {
       return { user: null, error: err.message };
     }
-    var authWait = hasAuthCallbackParams() || isGoogleAuthPending() ? 12000 : 4000;
+    var authWait = expectingGoogleReturn ? (isMobileAuth() ? 15000 : 12000) : 4000;
     var user = await waitForAuthUser(authWait);
     if (!user) {
       cachedUser = null;

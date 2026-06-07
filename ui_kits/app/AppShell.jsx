@@ -569,7 +569,11 @@
             {booting ? (
               <div className="mf-processing">
                 <div className="mf-processing__ring"><Icon name="scan" size={30} /></div>
-                <p className="mf-processing__t">Loading Medifi…</p>
+                <p className="mf-processing__t">
+                  {typeof window !== "undefined" && /authType=|signInViaRedirect/i.test(window.location.search || "")
+                    ? "Finishing Google sign-in…"
+                    : "Loading Medifi…"}
+                </p>
               </div>
             ) : processing ? <Processing message={processingMsg} sub={processingSub} /> : (
               <React.Fragment>
