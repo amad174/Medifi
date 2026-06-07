@@ -52,7 +52,9 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.static(root));
+if (!process.env.VERCEL) {
+  app.use(express.static(root));
+}
 
 const SYSTEM_ASK = `You are Medifi, an NHS letter helper. Answer the patient's question using ONLY the letter text provided. Plain English, calm, no medical diagnosis. If unsure, say so and suggest calling the number on the letter or their GP. Always remind them to check the original letter.`;
 
