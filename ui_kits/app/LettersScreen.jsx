@@ -2,8 +2,8 @@
 (function () {
   const { Badge } = window.MedifiDesignSystem_063852;
   const Icon = window.Icon;
+  const RISK_LABELS = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
   const TONE = { safe: "safe", caution: "caution", risk: "risk" };
-  const TEXT = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
 
   function Row({ letter, onOpen }) {
     return (
@@ -15,7 +15,7 @@
           <span className="mf-letter__received">{letter.received}</span>
         </span>
         <span className="mf-letter__end">
-          <Badge tone={TONE[letter.worstLevel]} dot>{TEXT[letter.worstLevel]}</Badge>
+          <Badge tone={TONE[letter.worstLevel]} dot>{RISK_LABELS[letter.worstLevel]}</Badge>
           <Icon name="chevronRight" size={20} className="mf-letter__chev" />
         </span>
       </button>
@@ -50,7 +50,9 @@
           {list.length === 0 && (
             <p className="mf-disclaimer" style={{ textAlign: "left" }}>No letters yet. Scan a letter from Home to add one here.</p>
           )}
-          {list.map((l) => <Row key={l.id} letter={l} onOpen={onOpen} />)}
+          {list.map((l) => (
+            <Row key={l.id} letter={l} onOpen={onOpen} />
+          ))}
         </div>
       </div>
     );

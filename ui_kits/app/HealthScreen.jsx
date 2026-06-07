@@ -100,11 +100,27 @@
     );
   }
 
+  function ValidationHints({ issues }) {
+    if (!issues || issues.length === 0) return null;
+    return (
+      <div className="mf-health-validation">
+        {issues.map(function (issue, i) {
+          return (
+            <RiskFlag key={i} level={issue.level} title={issue.level === "risk" ? "Fix this first" : "Double-check"}>
+              {issue.text}
+            </RiskFlag>
+          );
+        })}
+      </div>
+    );
+  }
+
   function HealthScreen({ onDone }) {
     const [profile, setProfile] = React.useState(Health.loadProfile);
     const [view, setView] = React.useState(profile.lastScore ? "result" : "form");
     const [computing, setComputing] = React.useState(false);
     const [result, setResult] = React.useState(profile.lastScore);
+    const validation = Health.validateProfile(profile);
 
     function patch(updates) {
       setProfile(function (p) {
@@ -123,8 +139,7 @@
     }
 
     function canSubmit() {
-      return profile.age && profile.ethnicity && profile.heightCm && profile.weightKg
-        && profile.activity && profile.diet;
+      return validation.valid && profile.ethnicity && profile.activity && profile.diet;
     }
 
     function submit() {
@@ -231,6 +246,8 @@
               label="Age"
               type="number"
               inputMode="numeric"
+              min={Health.LIMITS.age.min}
+              max={Health.LIMITS.age.max}
               placeholder="e.g. 42"
               value={profile.age}
               onChange={(e) => patch({ age: e.target.value })}
@@ -252,6 +269,8 @@
               label="Height (cm)"
               type="number"
               inputMode="decimal"
+              min={Health.LIMITS.heightCm.min}
+              max={Health.LIMITS.heightCm.max}
               placeholder="e.g. 165"
               value={profile.heightCm}
               onChange={(e) => patch({ heightCm: e.target.value })}
@@ -260,11 +279,19 @@
               label="Weight (kg)"
               type="number"
               inputMode="decimal"
+              min={Health.LIMITS.weightKg.min}
+              max={Health.LIMITS.weightKg.max}
               placeholder="e.g. 72"
               value={profile.weightKg}
               onChange={(e) => patch({ weightKg: e.target.value })}
             />
           </div>
+          {validation.bmiVal != null && validation.valid && (
+            <p className="mf-field__hint">
+              BMI preview: <strong>{validation.bmiVal}</strong> ({Health.bmiLabel(validation.bmiVal)})
+            </p>
+          )}
+          <ValidationHints issues={validation.issues} />
           <WeightLog logs={profile.weightLogs} onLog={logWeight} />
         </div>
 

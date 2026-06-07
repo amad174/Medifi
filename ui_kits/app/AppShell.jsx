@@ -10,7 +10,12 @@
   function Logo({ onClick }) {
     return (
       <button type="button" className="mf-header__logo" onClick={onClick} aria-label="Medifi home">
-        <img src="../../assets/medifi-cat.png" alt="Medifi" className="mf-header__logo-img" />
+        <svg className="mf-header__logo-img" viewBox="0 0 190 48" fill="none" role="img" aria-hidden="true">
+          <circle cx="20.5" cy="20.5" r="13.5" stroke="#1257d6" strokeWidth="4" />
+          <path d="M14.5 20.8l4.3 4.3 8-8.4" stroke="#0e8c84" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M30.4 30.4l8.1 8.1" stroke="#1257d6" strokeWidth="4" strokeLinecap="round" />
+          <text x="54" y="32" fontFamily="Lexend, sans-serif" fontSize="28" fontWeight="700" fill="#0d1b2a" letterSpacing="-0.5">Medifi</text>
+        </svg>
       </button>
     );
   }
@@ -161,6 +166,13 @@
   }
 
   function AppShell() {
+    const [a11yTick, setA11yTick] = React.useState(0);
+    React.useEffect(function () {
+      if (!window.MedifiA11y) return;
+      window.MedifiA11y.applyDocumentClasses();
+      return window.MedifiA11y.subscribe(function () { setA11yTick(function (n) { return n + 1; }); });
+    }, []);
+
     const [screen, setScreen] = React.useState("home");
     const [letter, setLetter] = React.useState(null);
     const [processing, setProcessing] = React.useState(false);
@@ -264,8 +276,11 @@
 
     const showMobileNav = !processing && MAIN_SCREENS.includes(screen);
 
+    const a11y = window.MedifiA11y ? window.MedifiA11y.get() : {};
+    const appClass = "mf-app" + (a11y.bigText ? " mf-app--big-text" : "");
+
     return (
-      <div className="mf-app">
+      <div className={appClass} data-a11y-tick={a11yTick}>
         <Header
           screen={screen}
           title={titles[screen]}
@@ -295,9 +310,8 @@
                   onPlanRoute={openRoutes}
                 />
               )}
-              {screen === "letters" && <window.LettersScreen onOpen={open} />}
-              {screen === "checkin" && <window.CheckInScreen />}
               {screen === "letters" && <window.LettersScreen letters={allLetters} onOpen={open} />}
+              {screen === "checkin" && <window.CheckInScreen />}
               {screen === "help" && <window.HelpScreen />}
               {screen === "updates" && <window.UpdatesScreen onCal={openCal} readIds={readIds} markRead={markRead} />}
               {screen === "account" && <window.AccountScreen onOpenHealth={() => setScreen("health")} />}

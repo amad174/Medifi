@@ -4,6 +4,12 @@
 (function () {
   var STORAGE_KEY = "medifi-health-profile";
 
+  var LIMITS = {
+    age: { min: 1, max: 120 },
+    heightCm: { min: 50, max: 280 },
+    weightKg: { min: 20, max: 400 },
+  };
+
   var ETHNICITIES = [
     { id: "white", label: "White British, Irish or other White" },
     { id: "asian", label: "Asian or Asian British" },
@@ -68,72 +74,202 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
   }
 
+  function parseMetric(value, min, max) {
+    var n = parseFloat(String(value).trim());
+    if (!isFinite(n)) return { value: null, ok: false, plausible: false };
+    return { value: n, ok: true, plausible: n >= min && n <= max };
+  }
+
   function bmi(weightKg, heightCm) {
     var w = parseFloat(weightKg);
     var h = parseFloat(heightCm) / 100;
-    if (!w || !h) return null;
+    if (!isFinite(w) || !isFinite(h) || h <= 0 || w <= 0) return null;
     return Math.round((w / (h * h)) * 10) / 10;
   }
 
   function bmiLabel(bmiVal) {
     if (bmiVal == null) return "";
+    if (bmiVal < 16) return "severely underweight range";
     if (bmiVal < 18.5) return "underweight range";
     if (bmiVal < 25) return "healthy weight range";
     if (bmiVal < 30) return "overweight range";
-    return "obese range";
+    if (bmiVal < 35) return "obese range (class I)";
+    if (bmiVal < 40) return "obese range (class II)";
+    return "obese range (class III)";
+  }
+
+  function bmiRiskFactor(bmiVal) {
+    if (bmiVal >= 50) {
+      return {
+        points: 45,
+        level: "risk",
+        title: "Very high BMI",
+        text: "Your BMI is " + bmiVal + ". This is well above the healthy range — please speak to your GP as soon as you can about weight support and screening.",
+      };
+    }
+    if (bmiVal >= 40) {
+      return {
+        points: 38,
+        level: "risk",
+        title: "BMI is in class III obesity",
+        text: "Your BMI is " + bmiVal + ". The NHS recommends urgent GP support for weight management and related health checks.",
+      };
+    }
+    if (bmiVal >= 35) {
+      return {
+        points: 32,
+        level: "risk",
+        title: "BMI is in class II obesity",
+        text: "Your BMI is " + bmiVal + ". Speak to your GP about weight support and any screening you may need.",
+      };
+    }
+    if (bmiVal >= 30) {
+      return {
+        points: 28,
+        level: "risk",
+        title: "BMI is in the obese range",
+        text: "Your BMI is " + bmiVal + ". The NHS recommends speaking to your GP about weight support and any screening you may need.",
+      };
+    }
+    if (bmiVal >= 25) {
+      return {
+        points: 16,
+        level: "caution",
+        title: "BMI is in the overweight range",
+        text: "Your BMI is " + bmiVal + ". Small changes to activity and diet can help — your GP or pharmacist can point you to free NHS programmes.",
+      };
+    }
+    if (bmiVal < 16) {
+      return {
+        points: 22,
+        level: "risk",
+        title: "BMI is severely below the healthy range",
+        text: "Your BMI is " + bmiVal + ". Please tell your GP — unintentional weight loss or very low weight needs a proper check.",
+      };
+    }
+    if (bmiVal < 18.5) {
+      return {
+        points: 14,
+        level: "caution",
+        title: "BMI is below the healthy range",
+        text: "Your BMI is " + bmiVal + ". If you have lost weight without trying, tell your GP.",
+      };
+    }
+    return {
+      points: 0,
+      level: "safe",
+      title: "BMI is in the healthy weight range",
+      text: "Your BMI is " + bmiVal + ". Keep up everyday movement and balanced meals.",
+    };
+  }
+
+  function ageRiskFactor(age) {
+    if (!isFinite(age)) return null;
+    if (age >= 80) {
+      return {
+        points: 18,
+        level: "caution",
+        title: "Age 80 or over",
+        text: "Routine NHS health checks and screening are especially important at this age.",
+      };
+    }
+    if (age >= 65) {
+      return {
+        points: 12,
+        level: "caution",
+        title: "Age 65 or over",
+        text: "Routine NHS health checks and screening are especially important as you get older.",
+      };
+    }
+    if (age >= 45) {
+      return {
+        points: 6,
+        level: "caution",
+        title: "Age 45 or over",
+        text: "You may be eligible for NHS diabetes and heart health checks — ask your GP surgery.",
+      };
+    }
+    if (age < 18) {
+      return {
+        points: 8,
+        level: "caution",
+        title: "Under 18",
+        text: "This demo score is aimed at adults. If you are worried about your health, speak to a parent, carer, or GP.",
+      };
+    }
+    return null;
+  }
+
+  function validateProfile(profile) {
+    var issues = [];
+    var age = parseMetric(profile.age, LIMITS.age.min, LIMITS.age.max);
+    var height = parseMetric(profile.heightCm, LIMITS.heightCm.min, LIMITS.heightCm.max);
+    var weight = parseMetric(profile.weightKg, LIMITS.weightKg.min, LIMITS.weightKg.max);
+    var bmiVal = height.ok && weight.ok ? bmi(weight.value, height.value) : null;
+
+    if (!age.ok) {
+      issues.push({ field: "age", level: "risk", text: "Enter a valid age in years." });
+    } else if (!age.plausible) {
+      issues.push({ field: "age", level: "caution", text: "Age looks unusual — please double-check the number." });
+    }
+
+    if (!height.ok) {
+      issues.push({ field: "heightCm", level: "risk", text: "Enter a valid height in centimetres." });
+    } else if (!height.plausible) {
+      issues.push({ field: "heightCm", level: "caution", text: "Height looks unusual — typical adult heights are 140–220 cm." });
+    }
+
+    if (!weight.ok) {
+      issues.push({ field: "weightKg", level: "risk", text: "Enter a valid weight in kilograms." });
+    } else if (!weight.plausible) {
+      issues.push({ field: "weightKg", level: "caution", text: "Weight looks unusual — please double-check the number." });
+    }
+
+    if (bmiVal != null && (bmiVal < 10 || bmiVal > 80)) {
+      issues.push({
+        field: "measurements",
+        level: "caution",
+        text: "Height and weight together produce an unusual BMI (" + bmiVal + "). Check both values are correct.",
+      });
+    }
+
+    var blocking = issues.some(function (i) { return i.level === "risk"; });
+    return {
+      age: age,
+      height: height,
+      weight: weight,
+      bmiVal: bmiVal,
+      issues: issues,
+      valid: !blocking && age.ok && height.ok && weight.ok,
+    };
   }
 
   function computeRiskScore(profile) {
     var factors = [];
     var score = 0;
-    var age = parseInt(profile.age, 10);
-    var bmiVal = bmi(profile.weightKg, profile.heightCm);
+    var validation = validateProfile(profile);
+    var age = validation.age.ok ? Math.round(validation.age.value) : NaN;
+    var bmiVal = validation.bmiVal;
+
+    validation.issues.forEach(function (issue) {
+      factors.push({
+        level: issue.level,
+        title: issue.level === "risk" ? "Check your entry" : "Unusual value entered",
+        text: issue.text,
+      });
+      score += issue.level === "risk" ? 20 : 12;
+    });
 
     if (bmiVal != null) {
-      if (bmiVal >= 30) {
-        score += 28;
-        factors.push({
-          level: "risk",
-          title: "BMI is in the obese range",
-          text: "Your BMI is " + bmiVal + ". The NHS recommends speaking to your GP about weight support and any screening you may need.",
-        });
-      } else if (bmiVal >= 25) {
-        score += 16;
-        factors.push({
-          level: "caution",
-          title: "BMI is in the overweight range",
-          text: "Your BMI is " + bmiVal + ". Small changes to activity and diet can help — your GP or pharmacist can point you to free NHS programmes.",
-        });
-      } else if (bmiVal < 18.5) {
-        score += 14;
-        factors.push({
-          level: "caution",
-          title: "BMI is below the healthy range",
-          text: "Your BMI is " + bmiVal + ". If you have lost weight without trying, tell your GP.",
-        });
-      } else {
-        factors.push({
-          level: "safe",
-          title: "BMI is in the healthy weight range",
-          text: "Your BMI is " + bmiVal + ". Keep up everyday movement and balanced meals.",
-        });
-      }
+      var bmiFactor = bmiRiskFactor(bmiVal);
+      score += bmiFactor.points;
+      factors.push(bmiFactor);
     }
 
-    if (age >= 65) {
-      score += 12;
-      factors.push({
-        level: "caution",
-        title: "Age 65 or over",
-        text: "Routine NHS health checks and screening are especially important as you get older.",
-      });
-    } else if (age >= 45) {
-      score += 6;
-      factors.push({
-        level: "caution",
-        title: "Age 45 or over",
-        text: "You may be eligible for NHS diabetes and heart health checks — ask your GP surgery.",
-      });
+    var ageFactor = ageRiskFactor(age);
+    if (ageFactor) {
+      score += ageFactor.points;
+      factors.push(ageFactor);
     }
 
     if (profile.activity === "sedentary") {
@@ -194,13 +330,22 @@
       });
     }
 
-    if (bmiVal != null && HIGH_DIABETES_ETHNICITIES[profile.ethnicity] && bmiVal >= 23) {
-      score += 14;
-      factors.push({
-        level: "caution",
-        title: "NHS diabetes screening may apply earlier",
-        text: "For your ethnicity group, the NHS often recommends diabetes checks at a lower BMI. Ask your GP if you have not had a recent blood test.",
-      });
+    if (bmiVal != null && HIGH_DIABETES_ETHNICITIES[profile.ethnicity]) {
+      if (bmiVal >= 27.5) {
+        score += 18;
+        factors.push({
+          level: "risk",
+          title: "NHS diabetes screening strongly recommended",
+          text: "For your ethnicity group, the NHS recommends earlier diabetes checks, especially at this BMI (" + bmiVal + "). Ask your GP for a blood test if you have not had one recently.",
+        });
+      } else if (bmiVal >= 23) {
+        score += 14;
+        factors.push({
+          level: "caution",
+          title: "NHS diabetes screening may apply earlier",
+          text: "For your ethnicity group, the NHS often recommends diabetes checks at a lower BMI. Ask your GP if you have not had a recent blood test.",
+        });
+      }
     }
 
     if (profile.ethnicity === "prefer-not") {
@@ -223,6 +368,10 @@
       ? "You have a mix of healthy habits and areas to keep an eye on. This score highlights topics worth discussing at your next GP or pharmacy visit."
       : "From what you logged, fewer long-term risk factors stand out. Keep logging weight and habits so Medifi can spot changes early.";
 
+    if (validation.issues.length > 0) {
+      summary = "Some of the numbers you entered look unusual. " + summary;
+    }
+
     return {
       score: score,
       level: level,
@@ -231,13 +380,14 @@
       bmiLabel: bmiLabel(bmiVal),
       factors: factors,
       summary: summary,
+      validationIssues: validation.issues,
       computedAt: new Date().toISOString(),
     };
   }
 
   function addWeightLog(profile, kg) {
     var w = parseFloat(kg);
-    if (!w || w < 20 || w > 300) return profile;
+    if (!isFinite(w) || w < LIMITS.weightKg.min || w > LIMITS.weightKg.max) return profile;
     var entry = { date: todayISO(), kg: w };
     var logs = (profile.weightLogs || []).filter(function (l) { return l.date !== entry.date; });
     logs.unshift(entry);
@@ -253,11 +403,13 @@
 
   window.MedifiHealth = {
     STORAGE_KEY: STORAGE_KEY,
+    LIMITS: LIMITS,
     ETHNICITIES: ETHNICITIES,
     ACTIVITY_LEVELS: ACTIVITY_LEVELS,
     DIET_PLANS: DIET_PLANS,
     loadProfile: loadProfile,
     saveProfile: saveProfile,
+    validateProfile: validateProfile,
     bmi: bmi,
     bmiLabel: bmiLabel,
     computeRiskScore: computeRiskScore,

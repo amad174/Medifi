@@ -27,7 +27,8 @@
   }
 
   function AccountScreen({ onOpenHealth }) {
-    const [prefs, setPrefs] = React.useState({ notify: true, calendar: true, carer: false, bigText: false });
+    const { prefs: a11y, toggle: toggleA11y } = window.useA11y();
+    const [prefs, setPrefs] = React.useState({ notify: true, calendar: true, carer: false });
     const [llm, setLlm] = React.useState(null);
     const [apiBase, setApiBase] = React.useState(() => LLM ? LLM.apiBase() : "");
     const [apiError, setApiError] = React.useState("");
@@ -101,14 +102,20 @@
         </div>
 
         <div className="mf-section">
+          <p className="mf-section__label">Accessibility</p>
+          <div className="mf-card-list">
+            <SettingRow icon="accessibility" title="Large text" sub="Bigger, bolder type across the app"
+              control={<Switch on={a11y.bigText} onToggle={() => toggleA11y("bigText")} label="Large text" />} />
+          </div>
+        </div>
+
+        <div className="mf-section">
           <p className="mf-section__label">Reminders &amp; alerts</p>
           <div className="mf-card-list">
             <SettingRow icon="bell" title="Notifications" sub="Reminders and risk alerts"
               control={<Switch on={prefs.notify} onToggle={() => t("notify")} label="Notifications" />} />
             <SettingRow icon="calendar" title="Calendar sync" sub="Add events to your phone calendar"
               control={<Switch on={prefs.calendar} onToggle={() => t("calendar")} label="Calendar sync" />} />
-            <SettingRow icon="languages" title="Large text" sub="Easier to read"
-              control={<Switch on={prefs.bigText} onToggle={() => t("bigText")} label="Large text" />} />
           </div>
         </div>
 

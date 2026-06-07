@@ -4,8 +4,8 @@
   const { Badge, Eyebrow } = window.MedifiDesignSystem_063852;
   const Icon = window.Icon;
 
+  const RISK_LABELS = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
   const LEVEL_TONE = { safe: "safe", caution: "caution", risk: "risk" };
-  const LEVEL_TEXT = { safe: "Looks fine", caution: "Check this", risk: "Needs attention" };
 
   function LetterRow({ letter, onOpen }) {
     return (
@@ -17,7 +17,7 @@
           <span className="mf-letter__received">{letter.received}</span>
         </span>
         <span className="mf-letter__end">
-          <Badge tone={LEVEL_TONE[letter.worstLevel]} dot>{LEVEL_TEXT[letter.worstLevel]}</Badge>
+          <Badge tone={LEVEL_TONE[letter.worstLevel]} dot>{RISK_LABELS[letter.worstLevel]}</Badge>
           <Icon name="chevronRight" size={20} className="mf-letter__chev" />
         </span>
       </button>
@@ -33,7 +33,9 @@
         <div className="mf-greet">
           <Eyebrow tone="accent">Tuesday 6 June</Eyebrow>
           <h1 className="mf-greet__h">Hi Aisha</h1>
-          <p className="mf-greet__sub">Photograph or paste an NHS letter and Medifi will turn it into a clear plan.</p>
+          <p className="mf-greet__sub">
+            Photograph or paste an NHS letter and Medifi will turn it into a clear plan.
+          </p>
         </div>
 
         <button type="button" className="mf-cta" onClick={onScan}>

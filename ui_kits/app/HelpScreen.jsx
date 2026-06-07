@@ -15,6 +15,8 @@
       a: "Yes — open a letter and tap Translate. Translated summaries are there to support you; the original English letter remains the source of truth." },
     { q: "How do transport routes work?",
       a: "When your letter includes a clinic or hospital, Medifi suggests bus, tube, and driving options with a suggested leave-by time. Open Google Maps or Apple Maps for turn-by-turn directions. Routes are a guide — always check the address on your original letter." },
+    { q: "What is large text?",
+      a: "Large text makes headings, summaries, and labels bigger and bolder across the app. Turn it on in Account under Accessibility." },
   ];
 
   function FaqItem({ item, open, onToggle }) {

@@ -15,6 +15,89 @@ body {
   flex-direction: column;
 }
 
+/* ---------- Large text accessibility ---------- */
+.mf-app--big-text {
+  --mf-big-scale: 1.3;
+  font-size: calc(1rem * var(--mf-big-scale));
+}
+
+.mf-app--big-text :where(
+  .mf-greet__h,
+  .mf-greet__sub,
+  .mf-hero__h,
+  .mf-hero__when,
+  .mf-summary,
+  .mf-section__label,
+  .mf-letter__head,
+  .mf-letter__sender,
+  .mf-letter__received,
+  .mf-cta__title,
+  .mf-cta__sub,
+  .mf-check__label,
+  .mf-check__meta,
+  .mf-risk__label,
+  .mf-risk__title,
+  .mf-risk__text,
+  .mf-setting .t,
+  .mf-setting .s,
+  .mf-profile__name,
+  .mf-profile__sub,
+  .mf-contact .t,
+  .mf-contact .s,
+  .mf-faq__q,
+  .mf-faq__a,
+  .mf-disclaimer,
+  .mf-field__label,
+  .mf-field__hint,
+  .mf-header__nav-item,
+  .mf-header__title,
+  .mf-nav__label,
+  .mf-tile__t,
+  .mf-tile__s,
+  .mf-banner,
+  .mf-processing__t,
+  .mf-processing__s,
+  .mf-health-score__title,
+  .mf-health-score__sub,
+  .mf-health-dl dt,
+  .mf-health-dl dd,
+  .mf-chip,
+  .mf-seeall,
+  .mf-link,
+  .mf-xlate-note,
+  .mf-route-card__name,
+  .mf-route-card__unit,
+  .mf-route-venue__name,
+  .mf-route-venue__unit,
+  .mf-med__name,
+  .mf-med__note,
+  .mf-original,
+  .mf-ask__answer,
+  .mf-weight-log__date,
+  .mf-weight-log__kg
+) {
+  font-weight: 700;
+}
+
+.mf-app--big-text .mf-section__label { font-size: calc(12px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-letter__head { font-size: calc(16px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-letter__sender,
+.mf-app--big-text .mf-letter__received { font-size: calc(12px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-cta__title { font-size: calc(20px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-cta__sub { font-size: calc(14px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-header__nav-item { font-size: calc(15px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-header__title { font-size: calc(17px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-nav__label { font-size: calc(11px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-tile__t { font-size: calc(16px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-tile__s { font-size: calc(13px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-faq__q,
+.mf-app--big-text .mf-faq__a { font-size: calc(15px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-chip { font-size: calc(14px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-disclaimer { font-size: calc(13px * var(--mf-big-scale)); }
+.mf-app--big-text .mf-greet__sub,
+.mf-app--big-text .mf-summary,
+.mf-app--big-text .mf-processing__s { line-height: 1.65; }
+
 /* ---------- Header ---------- */
 .mf-header {
   position: sticky;
@@ -43,6 +126,7 @@ body {
 }
 .mf-header__logo-img {
   height: 100%;
+  width: auto;
   display: block;
 }
 .mf-header__title {
@@ -1056,6 +1140,12 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+.mf-health-validation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 .mf-weight-log { margin-top: 12px; }
 .mf-weight-log__row {
