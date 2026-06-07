@@ -314,6 +314,35 @@
     }, []);
 
     React.useEffect(function () {
+      if (booting || authed) return;
+      if (!window.MedifiFirebase || !window.MedifiFirebase.ready || !window.MedifiAuth) return;
+      var auth = window.MedifiFirebase.auth;
+      var settled = false;
+      var unsub = auth.onAuthStateChanged(function (firebaseUser) {
+        if (!firebaseUser || settled || authed) return;
+        if (window.MedifiAuth.getToken && window.MedifiAuth.getToken()) return;
+        settled = true;
+        window.MedifiAuth.bootstrap().then(function (data) {
+          if (data.user) {
+            setPatient(data.user);
+            setAuthed(true);
+            setScreen("home");
+            setLettersVersion(function (v) { return v + 1; });
+            runEmailSync();
+            if (data.fromGoogle) {
+              flash("Welcome, " + (window.MedifiPatient
+                ? window.MedifiPatient.firstName(data.user.name)
+                : "there") + "!");
+            }
+          } else if (data.error) {
+            flash(data.error, "error");
+          }
+        });
+      });
+      return function () { unsub(); };
+    }, [booting, authed]);
+
+    React.useEffect(function () {
       if (!authed) return;
       const id = window.setInterval(runEmailSync, 5000);
       return function () { window.clearInterval(id); };
@@ -406,8 +435,8 @@
       );
     }
 
-    function onSignupComplete(profile) {
-      onAuthSuccess(profile, {});
+    function onSignupComplete(profile, opts) {
+      onAuthSuccess(profile, opts || {});
     }
 
     const avatarInitial = patient && window.MedifiPatient

@@ -99,7 +99,7 @@
       try {
         var user = await Auth.loginWithGoogle();
         if (user) {
-          onComplete(user);
+          onComplete(user, { google: true });
           return;
         }
       } catch (err) {

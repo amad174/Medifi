@@ -17,11 +17,15 @@
 
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
+  // Must run before any other auth calls (Firebase redirect sign-in requirement).
+  var redirectResultPromise = auth.getRedirectResult();
+
   window.MedifiFirebase = {
     ready: true,
     isConfigured: isConfigured,
     app: app,
     auth: auth,
     db: db,
+    redirectResultPromise: redirectResultPromise,
   };
 })();

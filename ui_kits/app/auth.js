@@ -312,6 +312,14 @@
     return config;
   }
 
+  async function readRedirectResult() {
+    var f = fb();
+    if (f.redirectResultPromise) {
+      return f.redirectResultPromise;
+    }
+    return f.auth.getRedirectResult();
+  }
+
   function captureGoogleRedirect() {
     if (!firebaseReady()) return Promise.resolve(null);
     if (googleRedirectPromise) return googleRedirectPromise;
@@ -319,7 +327,7 @@
       var pending = isGoogleAuthPending();
       var result;
       try {
-        result = await fb().auth.getRedirectResult();
+        result = await readRedirectResult();
       } catch (err) {
         setGoogleAuthPending(false);
         console.error("google redirect:", err);
@@ -388,7 +396,6 @@
   }
 
   function shouldUseRedirect() {
-    if (!isLocalDev()) return true;
     try {
       var ua = navigator.userAgent || "";
       if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
@@ -506,7 +513,7 @@
         await fb().auth.signOut();
         cachedUser = null;
         setActiveScope(null);
-        return { user: null };
+        return { user: null, error: "Could not load your profile. Please try again." };
       }
       hydrate(data.profile, data.letters, data.health);
       return {
@@ -520,7 +527,7 @@
     } catch (err) {
       console.error("bootstrap:", err);
       cachedUser = null;
-      return { user: null };
+      return { user: null, error: mapFirebaseError(err) };
     }
   }
 
